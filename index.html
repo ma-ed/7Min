@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>7-Minuten-Workout</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main id="app">
+    <!-- Idle -->
+    <section id="view-idle" class="view">
+      <h1>7-Minuten-Workout</h1>
+      <p class="subtitle">12 Übungen · 30 s · 10 s Pause</p>
+      <button id="btn-start" class="btn btn-primary btn-xl">Start</button>
+    </section>
+
+    <!-- Running / Paused -->
+    <section id="view-session" class="view hidden">
+      <header class="session-header">
+        <div class="progress-group">
+          <button id="btn-prev" class="btn-icon" aria-label="Vorherige Übung" title="Vorherige Übung">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span id="progress" class="progress">1 / 12</span>
+          <button id="btn-next" class="btn-icon" aria-label="Nächste Übung" title="Nächste Übung">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <span id="phase-label" class="phase-label">Bereitmachen</span>
+      </header>
+
+      <div class="exercise">
+        <div id="next-label" class="next-label hidden">Nächste Übung:</div>
+        <div id="exercise-svg" class="exercise-svg"></div>
+        <div id="exercise-name" class="exercise-name">—</div>
+      </div>
+
+      <div id="timer" class="timer">10</div>
+
+      <div class="controls">
+        <button id="btn-pause" class="btn btn-secondary">Pause</button>
+        <button id="btn-resume" class="btn btn-primary hidden">Fortsetzen</button>
+        <button id="btn-stop" class="btn btn-ghost">Beenden</button>
+      </div>
+    </section>
+
+    <!-- Finished -->
+    <section id="view-finished" class="view hidden">
+      <div class="trophy">🏆</div>
+      <h1>Geschafft!</h1>
+      <p class="subtitle">Du hast das 7-Minuten-Workout abgeschlossen.</p>
+      <button id="btn-restart" class="btn btn-primary btn-xl">Neu starten</button>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
