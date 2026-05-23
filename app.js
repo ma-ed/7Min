@@ -1,6 +1,6 @@
 import { EXERCISES, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
 
-const VERSION = "v4";
+const VERSION = "v6";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -27,8 +27,45 @@ const els = {
 // --- Audio ---
 let audioCtx = null;
 let muted = false;
+let iosSessionUnlocked = false;
+
+// Playing a silent <audio> element switches iOS audio session from "ambient"
+// (silenced by mute switch) to "playback" (ignores mute switch).
+// Web Audio API inherits whichever session is active, so this must run
+// before the first beep — and within a user-gesture call stack.
+function buildSilentWav() {
+  const buf = new ArrayBuffer(46);
+  const v = new DataView(buf);
+  v.setUint32( 0, 0x52494646, false); // "RIFF"
+  v.setUint32( 4, 38,         true);  // file size − 8
+  v.setUint32( 8, 0x57415645, false); // "WAVE"
+  v.setUint32(12, 0x666d7420, false); // "fmt "
+  v.setUint32(16, 16,         true);  // PCM fmt size
+  v.setUint16(20, 1,          true);  // PCM
+  v.setUint16(22, 1,          true);  // mono
+  v.setUint32(24, 44100,      true);  // sample rate
+  v.setUint32(28, 88200,      true);  // byte rate
+  v.setUint16(32, 2,          true);  // block align
+  v.setUint16(34, 16,         true);  // bits/sample
+  v.setUint32(36, 0x64617461, false); // "data"
+  v.setUint32(40, 2,          true);  // 1 sample = 2 bytes
+  v.setInt16( 44, 0,          true);  // silent sample
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+async function unlockIOSAudioSession() {
+  if (iosSessionUnlocked) return;
+  const url = URL.createObjectURL(buildSilentWav());
+  const a = new Audio(url);
+  a.volume = 0.001;
+  try { await a.play(); } catch (_) {}
+  URL.revokeObjectURL(url);
+  iosSessionUnlocked = true;
+}
 
 async function ensureAudio() {
+  // Unlock iOS audio session first (no-op after first call)
+  await unlockIOSAudioSession();
   if (!audioCtx) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     if (Ctor) audioCtx = new Ctor();
