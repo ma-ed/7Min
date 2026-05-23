@@ -720,3 +720,80 @@ h1 {
   color: var(--fg-dim);
   padding: 2rem 1rem;
 }
+
+/* ── Landscape phones (short viewport ≤ 500 px tall) ── */
+@media (orientation: landscape) and (max-height: 500px) {
+
+  #app {
+    height: 100dvh;
+    overflow: hidden;
+    padding: max(0.25rem, env(safe-area-inset-top))
+             max(0.75rem, env(safe-area-inset-right))
+             max(0.25rem, env(safe-area-inset-bottom))
+             max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .view {
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+  }
+
+  /* Session view: two-column grid so SVG and timer/controls sit side by side */
+  #view-session {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr 0.5fr;
+    grid-template-areas:
+      "header   header"
+      "exercise timer"
+      "exercise controls";
+    gap: 0.35rem 1.5rem;
+    align-items: center;
+    justify-items: center;
+  }
+
+  #view-session .session-header {
+    grid-area: header;
+    width: 100%;
+  }
+
+  #view-session .exercise {
+    grid-area: exercise;
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  #view-session .exercise-svg {
+    width: min(55vh, 42vw);
+    height: min(55vh, 42vw);
+  }
+
+  #view-session .timer {
+    grid-area: timer;
+    font-size: clamp(3rem, 14vw, 6rem);
+    align-self: center;
+  }
+
+  #view-session .controls {
+    grid-area: controls;
+    align-self: center;
+  }
+
+  /* Tighter buttons throughout all views */
+  .btn {
+    min-height: 44px;
+    padding: 0.6rem 1.2rem;
+  }
+
+  .btn-xl {
+    font-size: 1.1rem;
+    padding: 0.6rem 1.5rem;
+    min-height: 44px;
+    min-width: 160px;
+  }
+
+  /* Finished screen: shrink trophy so everything fits */
+  .trophy {
+    font-size: 3.5rem;
+  }
+}

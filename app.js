@@ -10,7 +10,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.2";
+const VERSION = "v10.3";
 
 document.getElementById("version-label").textContent = VERSION;
 
