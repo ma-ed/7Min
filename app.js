@@ -1,6 +1,6 @@
 import { EXERCISES, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
 
-const VERSION = "v6";
+const VERSION = "v7";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -382,9 +382,27 @@ els.btnMute.addEventListener("click", () => {
   if (muted) window.speechSynthesis?.cancel();
 });
 
-// --- Service Worker ---
+// --- Service Worker & manual update ---
+let swReg = null;
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js")
+      .then(reg => { swReg = reg; })
+      .catch(() => {});
+  });
+  // When a new SW takes control after update(), reload to serve fresh assets
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
   });
 }
+
+document.getElementById("version-label").addEventListener("click", async () => {
+  const el = document.getElementById("version-label");
+  el.textContent = "↻";
+  try {
+    if (swReg) await swReg.update();
+  } catch (_) {}
+  // Reload regardless — if a new SW activated, we get fresh assets;
+  // if nothing changed, the reload is instant (all assets still cached)
+  window.location.reload(true);
+});

@@ -257,8 +257,9 @@ h1 {
   right: max(0.75rem, env(safe-area-inset-right));
   font-size: 0.65rem;
   color: #334155;
-  pointer-events: none;
   user-select: none;
+  cursor: pointer;
+  padding: 0.5rem;
 }
 
 /* Finished */
