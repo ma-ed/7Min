@@ -10,9 +10,55 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.1";
+const VERSION = "v10.2";
 
 document.getElementById("version-label").textContent = VERSION;
+
+// --- Theme ---
+const THEME_KEY = "7min.theme";
+const THEME_CYCLE = ["auto", "light", "dark"];
+
+const THEME_ICONS = {
+  auto: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>`,
+  light: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  dark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+};
+
+const THEME_LABELS = { auto: "Systemdesign", light: "Hellmodus", dark: "Dunkelmodus" };
+const metaThemeColor = document.getElementById("meta-theme-color");
+const btnTheme = document.getElementById("btn-theme");
+
+function getTheme() {
+  return localStorage.getItem(THEME_KEY) || "auto";
+}
+
+function applyTheme(t) {
+  if (t === "auto") {
+    document.documentElement.removeAttribute("data-theme");
+    localStorage.removeItem(THEME_KEY);
+  } else {
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem(THEME_KEY, t);
+  }
+  const isDark =
+    t === "dark" ||
+    (t === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  metaThemeColor.content = isDark ? "#0f172a" : "#f0f4f8";
+  btnTheme.innerHTML = THEME_ICONS[t];
+  btnTheme.title = THEME_LABELS[t];
+  btnTheme.setAttribute("aria-label", THEME_LABELS[t]);
+}
+
+btnTheme.addEventListener("click", () => {
+  const next = THEME_CYCLE[(THEME_CYCLE.indexOf(getTheme()) + 1) % THEME_CYCLE.length];
+  applyTheme(next);
+});
+
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (getTheme() === "auto") applyTheme("auto");
+});
+
+applyTheme(getTheme());
 
 const els = {
   // views

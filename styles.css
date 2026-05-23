@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0f172a;
   --bg-elev: #1e293b;
   --fg: #f1f5f9;
@@ -8,6 +9,67 @@
   --accent-warn: #ef4444;
   --btn: #334155;
   --btn-hover: #475569;
+  --card-hover-bg: #243149;
+  --picker-checked-bg: #1f3a2e;
+  --drag-ghost-bg: #243149;
+  --version-color: #334155;
+  --overlay-hover: rgba(255,255,255,0.07);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f0f4f8;
+    --bg-elev: #e2e8f0;
+    --fg: #0f172a;
+    --fg-dim: #64748b;
+    --accent: #16a34a;
+    --accent-rest: #0284c7;
+    --accent-warn: #dc2626;
+    --btn: #cbd5e1;
+    --btn-hover: #94a3b8;
+    --card-hover-bg: #d1dbe6;
+    --picker-checked-bg: #dcfce7;
+    --drag-ghost-bg: #d1dbe6;
+    --version-color: #94a3b8;
+    --overlay-hover: rgba(0,0,0,0.06);
+  }
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --bg-elev: #1e293b;
+  --fg: #f1f5f9;
+  --fg-dim: #94a3b8;
+  --accent: #22c55e;
+  --accent-rest: #38bdf8;
+  --accent-warn: #ef4444;
+  --btn: #334155;
+  --btn-hover: #475569;
+  --card-hover-bg: #243149;
+  --picker-checked-bg: #1f3a2e;
+  --drag-ghost-bg: #243149;
+  --version-color: #334155;
+  --overlay-hover: rgba(255,255,255,0.07);
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f0f4f8;
+  --bg-elev: #e2e8f0;
+  --fg: #0f172a;
+  --fg-dim: #64748b;
+  --accent: #16a34a;
+  --accent-rest: #0284c7;
+  --accent-warn: #dc2626;
+  --btn: #cbd5e1;
+  --btn-hover: #94a3b8;
+  --card-hover-bg: #d1dbe6;
+  --picker-checked-bg: #dcfce7;
+  --drag-ghost-bg: #d1dbe6;
+  --version-color: #94a3b8;
+  --overlay-hover: rgba(0,0,0,0.06);
 }
 
 * {
@@ -269,10 +331,37 @@ h1 {
   bottom: max(0.5rem, env(safe-area-inset-bottom));
   right: max(0.75rem, env(safe-area-inset-right));
   font-size: 0.65rem;
-  color: #334155;
+  color: var(--version-color);
   user-select: none;
   cursor: pointer;
   padding: 0.5rem;
+}
+
+.theme-toggle {
+  position: fixed;
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  left: max(0.75rem, env(safe-area-inset-left));
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--version-color);
+  padding: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.theme-toggle:hover {
+  color: var(--fg-dim);
+}
+
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 /* Finished */
@@ -341,7 +430,7 @@ h1 {
 }
 
 .workout-card:hover {
-  background: #243149;
+  background: var(--card-hover-bg);
 }
 
 .workout-card-main {
@@ -378,7 +467,7 @@ h1 {
 }
 
 .workout-card-edit:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--overlay-hover);
   color: var(--fg);
 }
 
@@ -457,7 +546,7 @@ h1 {
   pointer-events: none;
   opacity: 0.95;
   box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  background: #243149;
+  background: var(--drag-ghost-bg);
 }
 
 .drag-handle {
@@ -582,7 +671,7 @@ h1 {
 }
 
 .picker-item.checked {
-  background: #1f3a2e;
+  background: var(--picker-checked-bg);
   outline: 1px solid var(--accent);
 }
 
