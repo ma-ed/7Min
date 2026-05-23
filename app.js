@@ -10,7 +10,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.4";
+const VERSION = "v10.5";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -130,23 +130,33 @@ async function unlockIOSAudioSession() {
   const url = URL.createObjectURL(buildSilentWav());
   const a = new Audio(url);
   a.volume = 0.001;
-  try { await a.play(); } catch (_) {}
+  try {
+    await a.play();
+    iosSessionUnlocked = true; // only on success — a failed play (no user gesture) leaves the flag false so the next touch retries
+  } catch (_) {}
   URL.revokeObjectURL(url);
-  iosSessionUnlocked = true;
 }
 
 async function ensureAudio() {
   await unlockIOSAudioSession();
   if (!audioCtx) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (Ctor) audioCtx = new Ctor();
+    if (Ctor) {
+      audioCtx = new Ctor();
+      // When iOS suspends or interrupts the context (phone call, background, etc.),
+      // reset the unlock flag so the next user touch replays the silent WAV to re-establish the session.
+      audioCtx.addEventListener("statechange", () => {
+        if (audioCtx.state !== "running") iosSessionUnlocked = false;
+      });
+    }
   }
   if (audioCtx && audioCtx.state !== "running") {
     try { await audioCtx.resume(); } catch (_) {}
   }
 }
 
-document.addEventListener("touchstart", () => { if (audioCtx) audioCtx.resume().catch(() => {}); }, { passive: true });
+// Full ensureAudio (not just resume) so the WAV re-unlock runs if the session was interrupted.
+document.addEventListener("touchstart", () => { ensureAudio().catch(() => {}); }, { passive: true });
 
 function beep(frequency, durationMs, when = 0, gain = 0.25) {
   if (!audioCtx || audioCtx.state !== "running" || muted) return;
