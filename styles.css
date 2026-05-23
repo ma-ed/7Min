@@ -168,11 +168,21 @@ h1 {
   height: 20px;
 }
 
+.phase-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .phase-label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.85rem;
   color: var(--fg-dim);
+}
+
+.btn-icon.muted {
+  color: var(--accent-warn);
 }
 
 /* Exercise display */

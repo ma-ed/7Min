@@ -11,6 +11,7 @@ const els = {
   btnRestart: document.getElementById("btn-restart"),
   btnPrev: document.getElementById("btn-prev"),
   btnNext: document.getElementById("btn-next"),
+  btnMute: document.getElementById("btn-mute"),
   progress: document.getElementById("progress"),
   phaseLabel: document.getElementById("phase-label"),
   nextLabel: document.getElementById("next-label"),
@@ -21,6 +22,7 @@ const els = {
 
 // --- Audio ---
 let audioCtx = null;
+let muted = false;
 function ensureAudio() {
   if (!audioCtx) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
@@ -30,7 +32,7 @@ function ensureAudio() {
 }
 
 function beep(frequency, durationMs, when = 0, gain = 0.25) {
-  if (!audioCtx) return;
+  if (!audioCtx || muted) return;
   const t0 = audioCtx.currentTime + when;
   const t1 = t0 + durationMs / 1000;
   const osc = audioCtx.createOscillator();
@@ -47,7 +49,15 @@ function beep(frequency, durationMs, when = 0, gain = 0.25) {
 }
 
 function countdownBeep() {
+  ensureAudio();
   beep(880, 150);
+}
+
+function halfTimeBeep() {
+  ensureAudio();
+  // Double-ping at a softer pitch to mark the halfway point
+  beep(660, 120, 0, 0.2);
+  beep(660, 120, 0.2, 0.2);
 }
 
 function successFanfare() {
@@ -61,7 +71,7 @@ function successFanfare() {
 
 // --- Speech Synthesis ---
 function speak(text) {
-  if (!("speechSynthesis" in window)) return;
+  if (!("speechSynthesis" in window) || muted) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang = "de-DE";
@@ -86,8 +96,9 @@ function releaseWakeLock() {
 }
 // iOS/Android auto-release the lock when the tab is hidden. Re-acquire on return.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && state.status === "running" && !wakeLock) {
-    requestWakeLock();
+  if (document.visibilityState === "visible" && state.status === "running") {
+    ensureAudio();
+    if (!wakeLock) requestWakeLock();
   }
 });
 
@@ -221,6 +232,10 @@ function tick() {
     } else if (secLeft > 3) {
       els.timer.classList.remove("warn");
     }
+    // Half-time ping at 15 s during work phases
+    if (state.lastSecondShown !== -1 && secLeft === 15 && state.schedule[state.phaseIndex]?.kind === "work") {
+      halfTimeBeep();
+    }
     state.lastSecondShown = secLeft;
   }
 
@@ -309,6 +324,15 @@ els.btnStop.addEventListener("click", stopSession);
 els.btnRestart.addEventListener("click", startSession);
 els.btnPrev.addEventListener("click", () => jumpToExercise(currentExerciseIndex() - 1));
 els.btnNext.addEventListener("click", () => jumpToExercise(currentExerciseIndex() + 1));
+els.btnMute.addEventListener("click", () => {
+  muted = !muted;
+  els.btnMute.querySelector(".icon-sound").classList.toggle("hidden", muted);
+  els.btnMute.querySelector(".icon-muted").classList.toggle("hidden", !muted);
+  els.btnMute.classList.toggle("muted", muted);
+  els.btnMute.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton stumm schalten");
+  els.btnMute.title = muted ? "Ton einschalten" : "Ton stumm schalten";
+  if (muted) window.speechSynthesis?.cancel();
+});
 
 // --- Service Worker ---
 if ("serviceWorker" in navigator) {

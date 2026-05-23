@@ -31,7 +31,20 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
-        <span id="phase-label" class="phase-label">Bereitmachen</span>
+        <div class="phase-group">
+          <span id="phase-label" class="phase-label">Bereitmachen</span>
+          <button id="btn-mute" class="btn-icon" aria-label="Ton stumm schalten" title="Ton stumm schalten">
+            <svg class="icon-sound" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <svg class="icon-muted hidden" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor"/>
+              <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
       </header>
 
       <div class="exercise">
