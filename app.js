@@ -23,16 +23,23 @@ const els = {
 // --- Audio ---
 let audioCtx = null;
 let muted = false;
-function ensureAudio() {
+
+async function ensureAudio() {
   if (!audioCtx) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     if (Ctor) audioCtx = new Ctor();
   }
-  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  // iOS suspends the context after screen lock / backgrounding — must await resume
+  if (audioCtx && audioCtx.state !== "running") {
+    try { await audioCtx.resume(); } catch (_) {}
+  }
 }
 
+// Re-unlock audio on every user touch (iOS PWA can re-suspend between interactions)
+document.addEventListener("touchstart", () => { if (audioCtx) audioCtx.resume().catch(() => {}); }, { passive: true });
+
 function beep(frequency, durationMs, when = 0, gain = 0.25) {
-  if (!audioCtx || muted) return;
+  if (!audioCtx || audioCtx.state !== "running" || muted) return;
   const t0 = audioCtx.currentTime + when;
   const t1 = t0 + durationMs / 1000;
   const osc = audioCtx.createOscillator();
@@ -48,20 +55,20 @@ function beep(frequency, durationMs, when = 0, gain = 0.25) {
   osc.stop(t1 + 0.02);
 }
 
-function countdownBeep() {
-  ensureAudio();
+async function countdownBeep() {
+  await ensureAudio();
   beep(880, 150);
 }
 
-function halfTimeBeep() {
-  ensureAudio();
+async function halfTimeBeep() {
+  await ensureAudio();
   // Double-ping at a softer pitch to mark the halfway point
   beep(660, 120, 0, 0.2);
   beep(660, 120, 0.2, 0.2);
 }
 
-function successFanfare() {
-  if (!audioCtx) return;
+async function successFanfare() {
+  await ensureAudio();
   // C5, E5, G5, C6
   beep(523.25, 180, 0);
   beep(659.25, 180, 0.2);
