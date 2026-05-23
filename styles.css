@@ -250,6 +250,17 @@ h1 {
   width: 100%;
 }
 
+/* Version label */
+.version-label {
+  position: fixed;
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+  right: max(0.75rem, env(safe-area-inset-right));
+  font-size: 0.65rem;
+  color: #334155;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Finished */
 .trophy {
   font-size: 6rem;

@@ -1,5 +1,9 @@
 import { EXERCISES, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
 
+const VERSION = "v4";
+
+document.getElementById("version-label").textContent = VERSION;
+
 const els = {
   viewIdle: document.getElementById("view-idle"),
   viewSession: document.getElementById("view-session"),
