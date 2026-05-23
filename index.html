@@ -12,11 +12,43 @@
 </head>
 <body>
   <main id="app">
-    <!-- Idle -->
-    <section id="view-idle" class="view">
-      <h1>7-Minuten-Workout</h1>
-      <p class="subtitle">12 Übungen · 30 s · 10 s Pause</p>
-      <button id="btn-start" class="btn btn-primary btn-xl">Start</button>
+    <!-- Workout list -->
+    <section id="view-list" class="view">
+      <header class="page-header">
+        <h1>Meine Trainings</h1>
+      </header>
+      <div id="workout-list" class="workout-list"></div>
+      <button id="btn-new-workout" class="btn btn-primary btn-xl">+ Neues Training</button>
+    </section>
+
+    <!-- Workout editor -->
+    <section id="view-edit" class="view hidden">
+      <header class="page-header with-back">
+        <button id="btn-edit-back" class="btn-icon" aria-label="Zurück" title="Zurück">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <input id="edit-name" class="edit-name" type="text" placeholder="Trainingsname" autocomplete="off" />
+      </header>
+      <div id="edit-locked-hint" class="locked-hint hidden">Der Name dieses Trainings ist geschützt.</div>
+      <div id="edit-exercise-list" class="edit-list"></div>
+      <div id="edit-empty" class="edit-empty hidden">Noch keine Übungen. Tippe auf „+ Übung hinzufügen".</div>
+      <div class="edit-actions">
+        <button id="btn-add-exercise" class="btn btn-primary">+ Übung hinzufügen</button>
+        <button id="btn-delete-workout" class="btn btn-danger hidden">Training löschen</button>
+      </div>
+    </section>
+
+    <!-- Exercise picker -->
+    <section id="view-picker" class="view hidden">
+      <header class="page-header with-back">
+        <button id="btn-picker-back" class="btn-icon" aria-label="Abbrechen" title="Abbrechen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <h2 class="page-title">Übungen auswählen</h2>
+      </header>
+      <input id="picker-search" class="search-input" type="search" placeholder="Suchen…" autocomplete="off" />
+      <div id="picker-list" class="picker-list"></div>
+      <button id="btn-picker-add" class="btn btn-primary btn-xl">Hinzufügen</button>
     </section>
 
     <!-- Running / Paused -->
@@ -64,8 +96,9 @@
     <section id="view-finished" class="view hidden">
       <div class="trophy">🏆</div>
       <h1>Geschafft!</h1>
-      <p class="subtitle">Du hast das 7-Minuten-Workout abgeschlossen.</p>
+      <p class="subtitle">Du hast das Workout abgeschlossen.</p>
       <button id="btn-restart" class="btn btn-primary btn-xl">Neu starten</button>
+      <button id="btn-back-to-list" class="btn btn-ghost">Zur Übersicht</button>
     </section>
   </main>
 

@@ -1,10 +1,11 @@
-const CACHE = "7min-v7";
+const CACHE = "7min-v9";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./exercises.js",
+  "./workouts.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

@@ -267,3 +267,354 @@ h1 {
   font-size: 6rem;
   line-height: 1;
 }
+
+/* ---------- Workout list, editor, picker ---------- */
+
+.page-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.page-header.with-back {
+  justify-content: flex-start;
+}
+
+.page-header h1 {
+  font-size: clamp(1.4rem, 5.5vw, 1.9rem);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  flex: 1;
+  text-align: center;
+  padding-right: 40px; /* balance back button width */
+}
+
+/* List view */
+.workout-list {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow-y: auto;
+  align-self: stretch;
+}
+
+.workout-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-elev);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  color: var(--fg);
+  transition: background 0.15s, transform 0.05s;
+  width: 100%;
+  font: inherit;
+}
+
+.workout-card:active {
+  transform: scale(0.99);
+}
+
+.workout-card:hover {
+  background: #243149;
+}
+
+.workout-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.workout-card-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workout-card-sub {
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+  margin-top: 0.15rem;
+}
+
+.workout-card-edit {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.workout-card-edit:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--fg);
+}
+
+.workout-card-edit svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Editor */
+.edit-name {
+  flex: 1;
+  background: var(--bg-elev);
+  border: 1px solid transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.edit-name:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.edit-name:disabled {
+  opacity: 0.7;
+}
+
+.locked-hint {
+  width: 100%;
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  margin-top: -0.25rem;
+}
+
+.edit-list {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+  align-self: stretch;
+  padding-bottom: 0.5rem;
+}
+
+.edit-empty {
+  width: 100%;
+  text-align: center;
+  color: var(--fg-dim);
+  padding: 2rem 1rem;
+}
+
+.edit-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elev);
+  border-radius: 12px;
+  padding: 0.5rem 0.5rem 0.5rem 0.25rem;
+  touch-action: pan-y;
+}
+
+.edit-item.dragging {
+  opacity: 0.5;
+}
+
+.edit-item.drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  opacity: 0.95;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  background: #243149;
+}
+
+.drag-handle {
+  width: 36px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dim);
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-handle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.edit-item-svg {
+  width: 36px;
+  height: 50px;
+  flex-shrink: 0;
+  color: var(--fg);
+}
+
+.edit-item-svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+.edit-item-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-remove:hover {
+  background: rgba(239,68,68,0.15);
+  color: var(--accent-warn);
+}
+
+.btn-remove svg {
+  width: 18px;
+  height: 18px;
+}
+
+.edit-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--accent-warn);
+  border: 1px solid rgba(239,68,68,0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(239,68,68,0.1);
+}
+
+/* Picker */
+.search-input {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.picker-list {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  align-self: stretch;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-elev);
+  border-radius: 12px;
+  padding: 0.5rem 0.9rem 0.5rem 0.6rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.picker-item.checked {
+  background: #1f3a2e;
+  outline: 1px solid var(--accent);
+}
+
+.picker-item-svg {
+  width: 32px;
+  height: 44px;
+  flex-shrink: 0;
+  color: var(--fg);
+}
+
+.picker-item-svg svg {
+  width: 100%;
+  height: 100%;
+}
+
+.picker-item-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.picker-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--fg-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: transparent;
+}
+
+.picker-item.checked .picker-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #052e13;
+}
+
+.picker-check svg {
+  width: 14px;
+  height: 14px;
+}
+
+.picker-empty {
+  text-align: center;
+  color: var(--fg-dim);
+  padding: 2rem 1rem;
+}

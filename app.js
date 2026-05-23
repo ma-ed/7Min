@@ -1,18 +1,48 @@
-import { EXERCISES, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
+import { EXERCISES, EXERCISE_BY_ID, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
+import {
+  listWorkouts,
+  getWorkout,
+  createWorkout,
+  updateWorkout,
+  deleteWorkout,
+  isProtectedWorkout,
+  setLastUsedWorkoutId,
+  getLastUsedWorkoutId,
+} from "./workouts.js";
 
-const VERSION = "v7";
+const VERSION = "v9";
 
 document.getElementById("version-label").textContent = VERSION;
 
 const els = {
-  viewIdle: document.getElementById("view-idle"),
+  // views
+  viewList: document.getElementById("view-list"),
+  viewEdit: document.getElementById("view-edit"),
+  viewPicker: document.getElementById("view-picker"),
   viewSession: document.getElementById("view-session"),
   viewFinished: document.getElementById("view-finished"),
-  btnStart: document.getElementById("btn-start"),
+  // list
+  workoutList: document.getElementById("workout-list"),
+  btnNewWorkout: document.getElementById("btn-new-workout"),
+  // editor
+  btnEditBack: document.getElementById("btn-edit-back"),
+  editName: document.getElementById("edit-name"),
+  editLockedHint: document.getElementById("edit-locked-hint"),
+  editList: document.getElementById("edit-exercise-list"),
+  editEmpty: document.getElementById("edit-empty"),
+  btnAddExercise: document.getElementById("btn-add-exercise"),
+  btnDeleteWorkout: document.getElementById("btn-delete-workout"),
+  // picker
+  btnPickerBack: document.getElementById("btn-picker-back"),
+  pickerSearch: document.getElementById("picker-search"),
+  pickerList: document.getElementById("picker-list"),
+  btnPickerAdd: document.getElementById("btn-picker-add"),
+  // session
   btnPause: document.getElementById("btn-pause"),
   btnResume: document.getElementById("btn-resume"),
   btnStop: document.getElementById("btn-stop"),
   btnRestart: document.getElementById("btn-restart"),
+  btnBackToList: document.getElementById("btn-back-to-list"),
   btnPrev: document.getElementById("btn-prev"),
   btnNext: document.getElementById("btn-next"),
   btnMute: document.getElementById("btn-mute"),
@@ -29,27 +59,23 @@ let audioCtx = null;
 let muted = false;
 let iosSessionUnlocked = false;
 
-// Playing a silent <audio> element switches iOS audio session from "ambient"
-// (silenced by mute switch) to "playback" (ignores mute switch).
-// Web Audio API inherits whichever session is active, so this must run
-// before the first beep — and within a user-gesture call stack.
 function buildSilentWav() {
   const buf = new ArrayBuffer(46);
   const v = new DataView(buf);
-  v.setUint32( 0, 0x52494646, false); // "RIFF"
-  v.setUint32( 4, 38,         true);  // file size − 8
-  v.setUint32( 8, 0x57415645, false); // "WAVE"
-  v.setUint32(12, 0x666d7420, false); // "fmt "
-  v.setUint32(16, 16,         true);  // PCM fmt size
-  v.setUint16(20, 1,          true);  // PCM
-  v.setUint16(22, 1,          true);  // mono
-  v.setUint32(24, 44100,      true);  // sample rate
-  v.setUint32(28, 88200,      true);  // byte rate
-  v.setUint16(32, 2,          true);  // block align
-  v.setUint16(34, 16,         true);  // bits/sample
-  v.setUint32(36, 0x64617461, false); // "data"
-  v.setUint32(40, 2,          true);  // 1 sample = 2 bytes
-  v.setInt16( 44, 0,          true);  // silent sample
+  v.setUint32( 0, 0x52494646, false);
+  v.setUint32( 4, 38,         true);
+  v.setUint32( 8, 0x57415645, false);
+  v.setUint32(12, 0x666d7420, false);
+  v.setUint32(16, 16,         true);
+  v.setUint16(20, 1,          true);
+  v.setUint16(22, 1,          true);
+  v.setUint32(24, 44100,      true);
+  v.setUint32(28, 88200,      true);
+  v.setUint16(32, 2,          true);
+  v.setUint16(34, 16,         true);
+  v.setUint32(36, 0x64617461, false);
+  v.setUint32(40, 2,          true);
+  v.setInt16( 44, 0,          true);
   return new Blob([buf], { type: "audio/wav" });
 }
 
@@ -64,19 +90,16 @@ async function unlockIOSAudioSession() {
 }
 
 async function ensureAudio() {
-  // Unlock iOS audio session first (no-op after first call)
   await unlockIOSAudioSession();
   if (!audioCtx) {
     const Ctor = window.AudioContext || window.webkitAudioContext;
     if (Ctor) audioCtx = new Ctor();
   }
-  // iOS suspends the context after screen lock / backgrounding — must await resume
   if (audioCtx && audioCtx.state !== "running") {
     try { await audioCtx.resume(); } catch (_) {}
   }
 }
 
-// Re-unlock audio on every user touch (iOS PWA can re-suspend between interactions)
 document.addEventListener("touchstart", () => { if (audioCtx) audioCtx.resume().catch(() => {}); }, { passive: true });
 
 function beep(frequency, durationMs, when = 0, gain = 0.25) {
@@ -103,21 +126,18 @@ async function countdownBeep() {
 
 async function halfTimeBeep() {
   await ensureAudio();
-  // Double-ping at a softer pitch to mark the halfway point
   beep(660, 120, 0, 0.2);
   beep(660, 120, 0.2, 0.2);
 }
 
 async function successFanfare() {
   await ensureAudio();
-  // C5, E5, G5, C6
   beep(523.25, 180, 0);
   beep(659.25, 180, 0.2);
   beep(783.99, 180, 0.4);
   beep(1046.5, 380, 0.6, 0.3);
 }
 
-// --- Speech Synthesis ---
 function speak(text) {
   if (!("speechSynthesis" in window) || muted) return;
   window.speechSynthesis.cancel();
@@ -134,7 +154,7 @@ async function requestWakeLock() {
   try {
     wakeLock = await navigator.wakeLock.request("screen");
     wakeLock.addEventListener("release", () => { wakeLock = null; });
-  } catch (_) { /* user gesture required or not allowed — ignore */ }
+  } catch (_) {}
 }
 function releaseWakeLock() {
   if (wakeLock) {
@@ -142,7 +162,6 @@ function releaseWakeLock() {
     wakeLock = null;
   }
 }
-// iOS/Android auto-release the lock when the tab is hidden. Re-acquire on return.
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.status === "running") {
     ensureAudio();
@@ -150,16 +169,318 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// --- State machine ---
-// Phase sequence: prepare -> (work, rest)*11 -> work -> finished
-// First "prepare" shows exercise 0 with PREPARE_SECONDS.
-// During "rest" we show the NEXT exercise so user can mentally prep.
-function buildSchedule() {
+// --- View routing ---
+const ALL_VIEWS = [els.viewList, els.viewEdit, els.viewPicker, els.viewSession, els.viewFinished];
+function show(view) {
+  for (const v of ALL_VIEWS) v.classList.add("hidden");
+  view.classList.remove("hidden");
+}
+
+// --- Workout list view ---
+function renderWorkoutList() {
+  const workouts = listWorkouts();
+  els.workoutList.innerHTML = "";
+  for (const w of workouts) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "workout-card";
+    card.innerHTML = `
+      <div class="workout-card-main">
+        <div class="workout-card-name"></div>
+        <div class="workout-card-sub"></div>
+      </div>
+      <span class="workout-card-edit" role="button" aria-label="Bearbeiten" title="Bearbeiten">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 4l6 6L8 22H2v-6L14 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+    `;
+    card.querySelector(".workout-card-name").textContent = w.name;
+    const count = w.exerciseIds.length;
+    const totalSec = count > 0 ? PREPARE_SECONDS + count * WORK_SECONDS + Math.max(0, count - 1) * REST_SECONDS : 0;
+    const mm = Math.floor(totalSec / 60);
+    const ss = totalSec % 60;
+    const durationLabel = count > 0 ? ` · ${mm}:${String(ss).padStart(2, "0")} min` : "";
+    card.querySelector(".workout-card-sub").textContent = `${count} Übung${count === 1 ? "" : "en"}${durationLabel}`;
+
+    const editEl = card.querySelector(".workout-card-edit");
+    editEl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openEditor(w.id);
+    });
+    card.addEventListener("click", () => {
+      if (count === 0) {
+        openEditor(w.id);
+        return;
+      }
+      startWorkout(w.id);
+    });
+    els.workoutList.appendChild(card);
+  }
+}
+
+// --- Editor state ---
+const editor = {
+  workoutId: null,
+  name: "",
+  exerciseIds: [],
+};
+
+function openEditor(workoutId) {
+  const w = getWorkout(workoutId);
+  if (!w) return;
+  editor.workoutId = w.id;
+  editor.name = w.name;
+  editor.exerciseIds = [...w.exerciseIds];
+  const locked = isProtectedWorkout(w.id);
+  els.editName.value = w.name;
+  els.editName.disabled = locked;
+  els.editLockedHint.classList.toggle("hidden", !locked);
+  els.btnDeleteWorkout.classList.toggle("hidden", locked);
+  renderEditList();
+  show(els.viewEdit);
+}
+
+function persistEditorState() {
+  updateWorkout(editor.workoutId, {
+    name: editor.name,
+    exerciseIds: editor.exerciseIds,
+  });
+}
+
+function renderEditList() {
+  els.editList.innerHTML = "";
+  els.editEmpty.classList.toggle("hidden", editor.exerciseIds.length > 0);
+  editor.exerciseIds.forEach((exId, index) => {
+    const ex = EXERCISE_BY_ID[exId];
+    if (!ex) return;
+    const item = document.createElement("div");
+    item.className = "edit-item";
+    item.dataset.index = String(index);
+    item.innerHTML = `
+      <span class="drag-handle" aria-label="Verschieben" title="Verschieben">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="12" r="1.5" fill="currentColor"/>
+          <circle cx="9" cy="18" r="1.5" fill="currentColor"/>
+          <circle cx="15" cy="18" r="1.5" fill="currentColor"/>
+        </svg>
+      </span>
+      <div class="edit-item-svg"></div>
+      <div class="edit-item-name"></div>
+      <button class="btn-remove" type="button" aria-label="Entfernen" title="Entfernen">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    `;
+    item.querySelector(".edit-item-svg").innerHTML = ex.svg;
+    item.querySelector(".edit-item-name").textContent = ex.name;
+    item.querySelector(".btn-remove").addEventListener("click", () => {
+      editor.exerciseIds.splice(index, 1);
+      persistEditorState();
+      renderEditList();
+    });
+    const handle = item.querySelector(".drag-handle");
+    handle.addEventListener("pointerdown", (ev) => startDrag(ev, item, index));
+    els.editList.appendChild(item);
+  });
+}
+
+// --- Drag & drop reorder (pointer events) ---
+let drag = null;
+
+function startDrag(ev, item, index) {
+  ev.preventDefault();
+  const rect = item.getBoundingClientRect();
+  const ghost = item.cloneNode(true);
+  ghost.classList.add("drag-ghost");
+  ghost.style.width = rect.width + "px";
+  ghost.style.left = rect.left + "px";
+  ghost.style.top = rect.top + "px";
+  document.body.appendChild(ghost);
+  item.classList.add("dragging");
+  drag = {
+    sourceIndex: index,
+    currentIndex: index,
+    item,
+    ghost,
+    pointerId: ev.pointerId,
+    offsetY: ev.clientY - rect.top,
+    offsetX: ev.clientX - rect.left,
+  };
+  try { ev.target.setPointerCapture(ev.pointerId); } catch (_) {}
+  document.addEventListener("pointermove", onDragMove);
+  document.addEventListener("pointerup", onDragEnd);
+  document.addEventListener("pointercancel", onDragEnd);
+}
+
+function onDragMove(ev) {
+  if (!drag) return;
+  drag.ghost.style.left = (ev.clientX - drag.offsetX) + "px";
+  drag.ghost.style.top = (ev.clientY - drag.offsetY) + "px";
+
+  // Determine new index based on midpoint of each item except dragged
+  const items = Array.from(els.editList.children).filter((el) => el !== drag.item);
+  let newIndex = items.length;
+  for (let i = 0; i < items.length; i++) {
+    const r = items[i].getBoundingClientRect();
+    if (ev.clientY < r.top + r.height / 2) {
+      newIndex = i;
+      break;
+    }
+  }
+  if (newIndex !== drag.currentIndex) {
+    drag.currentIndex = newIndex;
+    // Re-insert dragged item at newIndex
+    const parent = els.editList;
+    parent.removeChild(drag.item);
+    const ref = parent.children[newIndex] || null;
+    parent.insertBefore(drag.item, ref);
+  }
+}
+
+function onDragEnd() {
+  if (!drag) return;
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  document.removeEventListener("pointercancel", onDragEnd);
+  drag.ghost.remove();
+  drag.item.classList.remove("dragging");
+
+  if (drag.currentIndex !== drag.sourceIndex) {
+    const [moved] = editor.exerciseIds.splice(drag.sourceIndex, 1);
+    editor.exerciseIds.splice(drag.currentIndex, 0, moved);
+    persistEditorState();
+  }
+  drag = null;
+  renderEditList();
+}
+
+// --- Editor events ---
+els.editName.addEventListener("input", () => {
+  editor.name = els.editName.value;
+});
+els.editName.addEventListener("blur", () => {
+  persistEditorState();
+});
+els.btnEditBack.addEventListener("click", () => {
+  // Persist and ensure name not empty
+  if (!editor.name.trim() && !isProtectedWorkout(editor.workoutId)) {
+    editor.name = "Neues Training";
+    els.editName.value = editor.name;
+  }
+  persistEditorState();
+  goToList();
+});
+els.btnDeleteWorkout.addEventListener("click", () => {
+  if (isProtectedWorkout(editor.workoutId)) return;
+  if (!confirm(`Training „${editor.name}" wirklich löschen?`)) return;
+  deleteWorkout(editor.workoutId);
+  goToList();
+});
+els.btnAddExercise.addEventListener("click", () => openPicker());
+
+// --- Picker state ---
+const picker = {
+  selected: new Set(),
+  query: "",
+};
+
+function openPicker() {
+  picker.selected.clear();
+  picker.query = "";
+  els.pickerSearch.value = "";
+  renderPicker();
+  show(els.viewPicker);
+  updatePickerAddButton();
+}
+
+function renderPicker() {
+  els.pickerList.innerHTML = "";
+  const existing = new Set(editor.exerciseIds);
+  const q = picker.query.trim().toLowerCase();
+  const available = EXERCISES.filter((ex) => !existing.has(ex.id) && (q === "" || ex.name.toLowerCase().includes(q)));
+  if (available.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "picker-empty";
+    empty.textContent = existing.size >= EXERCISES.length
+      ? "Alle Übungen sind bereits im Training."
+      : "Keine Treffer.";
+    els.pickerList.appendChild(empty);
+    return;
+  }
+  for (const ex of available) {
+    const item = document.createElement("div");
+    item.className = "picker-item";
+    if (picker.selected.has(ex.id)) item.classList.add("checked");
+    item.innerHTML = `
+      <div class="picker-item-svg"></div>
+      <div class="picker-item-name"></div>
+      <span class="picker-check">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    `;
+    item.querySelector(".picker-item-svg").innerHTML = ex.svg;
+    item.querySelector(".picker-item-name").textContent = ex.name;
+    item.addEventListener("click", () => {
+      if (picker.selected.has(ex.id)) picker.selected.delete(ex.id);
+      else picker.selected.add(ex.id);
+      item.classList.toggle("checked");
+      updatePickerAddButton();
+    });
+    els.pickerList.appendChild(item);
+  }
+}
+
+function updatePickerAddButton() {
+  const n = picker.selected.size;
+  els.btnPickerAdd.textContent = n === 0 ? "Hinzufügen" : `Hinzufügen (${n})`;
+  els.btnPickerAdd.disabled = n === 0;
+}
+
+els.pickerSearch.addEventListener("input", () => {
+  picker.query = els.pickerSearch.value;
+  renderPicker();
+});
+els.btnPickerBack.addEventListener("click", () => show(els.viewEdit));
+els.btnPickerAdd.addEventListener("click", () => {
+  if (picker.selected.size === 0) return;
+  // Preserve order of EXERCISES for added items (consistent ordering)
+  const ordered = EXERCISES.map((e) => e.id).filter((id) => picker.selected.has(id));
+  editor.exerciseIds.push(...ordered);
+  persistEditorState();
+  renderEditList();
+  show(els.viewEdit);
+});
+
+function goToList() {
+  renderWorkoutList();
+  show(els.viewList);
+}
+
+// --- New workout button ---
+els.btnNewWorkout.addEventListener("click", () => {
+  const w = createWorkout("Neues Training", []);
+  openEditor(w.id);
+  // Pre-focus the name input on next tick
+  setTimeout(() => {
+    els.editName.focus();
+    els.editName.select();
+  }, 0);
+});
+
+// --- Session ---
+function buildSchedule(exercises) {
   const phases = [];
+  if (exercises.length === 0) return phases;
   phases.push({ kind: "prepare", duration: PREPARE_SECONDS, exerciseIndex: 0 });
-  for (let i = 0; i < EXERCISES.length; i++) {
+  for (let i = 0; i < exercises.length; i++) {
     phases.push({ kind: "work", duration: WORK_SECONDS, exerciseIndex: i });
-    if (i < EXERCISES.length - 1) {
+    if (i < exercises.length - 1) {
       phases.push({ kind: "rest", duration: REST_SECONDS, exerciseIndex: i + 1 });
     }
   }
@@ -167,25 +488,22 @@ function buildSchedule() {
 }
 
 const state = {
-  status: "idle", // idle | running | paused | finished
+  status: "idle",
+  exercises: [],
   schedule: [],
   phaseIndex: 0,
-  phaseEndAt: 0,        // performance.now() timestamp
-  remainingMs: 0,       // used while paused
+  phaseEndAt: 0,
+  remainingMs: 0,
   lastSecondShown: -1,
   intervalId: 0,
+  workoutId: null,
 };
 
-function show(view) {
-  for (const v of [els.viewIdle, els.viewSession, els.viewFinished]) v.classList.add("hidden");
-  view.classList.remove("hidden");
-}
-
 function setPhaseUI(phase) {
-  const ex = EXERCISES[phase.exerciseIndex];
+  const ex = state.exercises[phase.exerciseIndex];
   els.exerciseSvg.innerHTML = ex.svg;
   els.exerciseName.textContent = ex.name;
-  els.progress.textContent = `${Math.min(phase.exerciseIndex + 1, EXERCISES.length)} / ${EXERCISES.length}`;
+  els.progress.textContent = `${Math.min(phase.exerciseIndex + 1, state.exercises.length)} / ${state.exercises.length}`;
 
   if (phase.kind === "prepare") {
     els.phaseLabel.textContent = "Bereitmachen";
@@ -221,8 +539,6 @@ function currentExerciseIndex() {
 }
 
 function findPhaseBeforeExercise(exerciseIndex) {
-  // Returns the prepare phase (before exercise 0) or the rest phase that
-  // precedes work[exerciseIndex] (rest.exerciseIndex === exerciseIndex).
   if (exerciseIndex === 0) {
     return state.schedule.findIndex((p) => p.kind === "prepare");
   }
@@ -233,7 +549,7 @@ function findPhaseBeforeExercise(exerciseIndex) {
 
 function jumpToExercise(targetExerciseIndex) {
   if (state.status !== "running" && state.status !== "paused") return;
-  if (targetExerciseIndex >= EXERCISES.length) {
+  if (targetExerciseIndex >= state.exercises.length) {
     finish();
     return;
   }
@@ -269,18 +585,15 @@ function tick() {
 
   if (secLeft !== state.lastSecondShown) {
     els.timer.textContent = String(secLeft);
-    // Trigger beep when a new second appears that is in {3,2,1}
     if (state.lastSecondShown !== -1 && secLeft >= 1 && secLeft <= 3) {
       countdownBeep();
       els.timer.classList.add("warn");
-      // restart pulse animation
       els.timer.style.animation = "none";
       void els.timer.offsetWidth;
       els.timer.style.animation = "";
     } else if (secLeft > 3) {
       els.timer.classList.remove("warn");
     }
-    // Half-time ping at 15 s during work phases
     if (state.lastSecondShown !== -1 && secLeft === 15 && state.schedule[state.phaseIndex]?.kind === "work") {
       halfTimeBeep();
     }
@@ -313,9 +626,16 @@ function advancePhase() {
   startPhase(next);
 }
 
-function startSession() {
+function startWorkout(workoutId) {
+  const w = getWorkout(workoutId);
+  if (!w) return;
+  const exercises = w.exerciseIds.map((id) => EXERCISE_BY_ID[id]).filter(Boolean);
+  if (exercises.length === 0) return;
+  setLastUsedWorkoutId(workoutId);
   ensureAudio();
-  state.schedule = buildSchedule();
+  state.workoutId = workoutId;
+  state.exercises = exercises;
+  state.schedule = buildSchedule(exercises);
   state.status = "running";
   show(els.viewSession);
   els.btnPause.classList.remove("hidden");
@@ -341,7 +661,6 @@ function resumeSession() {
   ensureAudio();
   state.status = "running";
   state.phaseEndAt = performance.now() + state.remainingMs;
-  // restore phase label
   setPhaseUI(state.schedule[state.phaseIndex]);
   els.btnPause.classList.remove("hidden");
   els.btnResume.classList.add("hidden");
@@ -353,7 +672,7 @@ function stopSession() {
   stopTimerLoop();
   state.status = "idle";
   releaseWakeLock();
-  show(els.viewIdle);
+  goToList();
 }
 
 function finish() {
@@ -364,12 +683,14 @@ function finish() {
   successFanfare();
 }
 
-// --- Wire up events ---
-els.btnStart.addEventListener("click", startSession);
+// --- Wire up session events ---
 els.btnPause.addEventListener("click", pauseSession);
 els.btnResume.addEventListener("click", resumeSession);
 els.btnStop.addEventListener("click", stopSession);
-els.btnRestart.addEventListener("click", startSession);
+els.btnRestart.addEventListener("click", () => {
+  if (state.workoutId) startWorkout(state.workoutId);
+});
+els.btnBackToList.addEventListener("click", goToList);
 els.btnPrev.addEventListener("click", () => jumpToExercise(currentExerciseIndex() - 1));
 els.btnNext.addEventListener("click", () => jumpToExercise(currentExerciseIndex() + 1));
 els.btnMute.addEventListener("click", () => {
@@ -390,7 +711,6 @@ if ("serviceWorker" in navigator) {
       .then(reg => { swReg = reg; })
       .catch(() => {});
   });
-  // When a new SW takes control after update(), reload to serve fresh assets
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     window.location.reload();
   });
@@ -402,7 +722,11 @@ document.getElementById("version-label").addEventListener("click", async () => {
   try {
     if (swReg) await swReg.update();
   } catch (_) {}
-  // Reload regardless — if a new SW activated, we get fresh assets;
-  // if nothing changed, the reload is instant (all assets still cached)
   window.location.reload(true);
 });
+
+// --- Boot ---
+renderWorkoutList();
+show(els.viewList);
+// Suppress unused-warning for getLastUsedWorkoutId; reserved for future quick-start UX
+void getLastUsedWorkoutId;
