@@ -1,4 +1,4 @@
-const CACHE = "7min-v10.3";
+const CACHE = "7min-v10.4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -9,6 +9,18 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
+  "./exercises/hampelmann.png",
+  "./exercises/wandsitzen.png",
+  "./exercises/liegestuetze.png",
+  "./exercises/kniebeugen.png",
+  "./exercises/bauchpressen.png",
+  "./exercises/auf-den-stuhl-steigen.png",
+  "./exercises/trizeps-dips.png",
+  "./exercises/ausfallschritte.png",
+  "./exercises/hoher-kniehebelauf.png",
+  "./exercises/seitlicher-unterarmstuetz.png",
+  "./exercises/liegestuetze-rotation.png",
+  "./exercises/unterarmstuetz.png",
 ];
 
 self.addEventListener("install", (event) => {

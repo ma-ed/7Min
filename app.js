@@ -10,7 +10,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.3";
+const VERSION = "v10.4";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -310,25 +310,38 @@ function makeExerciseImg(ex) {
 }
 
 function renderExerciseFigure(container, ex) {
-  if (exerciseImageStatus.get(ex.id) === "yes") {
+  const status = exerciseImageStatus.get(ex.id);
+  if (status === "no") {
+    container.innerHTML = ex.svg;
+    return;
+  }
+  if (status === "yes") {
     container.innerHTML = "";
     container.appendChild(makeExerciseImg(ex));
     return;
   }
-  container.innerHTML = ex.svg;
-  const status = exerciseImageStatus.get(ex.id);
-  if (status === "no" || status === "pending") return;
-  exerciseImageStatus.set(ex.id, "pending");
-  const probe = new Image();
-  probe.onload = () => {
-    exerciseImageStatus.set(ex.id, "yes");
-    container.innerHTML = "";
-    container.appendChild(makeExerciseImg(ex));
-  };
-  probe.onerror = () => {
+  // "pending" or unknown: show <img> directly so the PNG appears without an SVG flash.
+  // Fall back to SVG only if the image fails to load.
+  const img = makeExerciseImg(ex);
+  img.onerror = () => {
     exerciseImageStatus.set(ex.id, "no");
+    container.innerHTML = ex.svg;
   };
-  probe.src = exerciseImageUrl(ex.id);
+  img.onload = () => exerciseImageStatus.set(ex.id, "yes");
+  container.innerHTML = "";
+  container.appendChild(img);
+  if (!status) exerciseImageStatus.set(ex.id, "pending");
+}
+
+function preloadExerciseImages() {
+  for (const ex of EXERCISES) {
+    if (exerciseImageStatus.has(ex.id)) continue;
+    exerciseImageStatus.set(ex.id, "pending");
+    const img = new Image();
+    img.onload = () => exerciseImageStatus.set(ex.id, "yes");
+    img.onerror = () => exerciseImageStatus.set(ex.id, "no");
+    img.src = exerciseImageUrl(ex.id);
+  }
 }
 
 function renderEditList() {
@@ -808,6 +821,7 @@ document.getElementById("version-label").addEventListener("click", async () => {
 });
 
 // --- Boot ---
+preloadExerciseImages();
 renderWorkoutList();
 show(els.viewList);
 // Suppress unused-warning for getLastUsedWorkoutId; reserved for future quick-start UX
