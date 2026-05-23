@@ -201,14 +201,27 @@ h1 {
 }
 
 .exercise-svg {
-  width: min(55vw, 220px);
-  aspect-ratio: 100 / 140;
+  /* Fixed square slot — same dimensions for every exercise so timer + name +
+     controls never shift. Width caps at 92vw (full screen width on narrow
+     phones), height caps at 45vh so portrait images don't push the timer down.
+     Whichever is smaller wins for both axes -> always square.
+     Both dimensions are explicit (rather than aspect-ratio) because a flex
+     child with aspect-ratio + width lets the inline SVG's intrinsic viewBox
+     stretch the height, breaking the square. Image fits via object-fit. */
+  width: min(92vw, 45vh);
+  height: min(92vw, 45vh);
+  flex-shrink: 0;
   color: var(--fg);
 }
 
-.exercise-svg svg {
+.exercise-svg svg,
+.exercise-svg img,
+.edit-item-svg img,
+.picker-item-svg img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .exercise-name {

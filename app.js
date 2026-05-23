@@ -10,7 +10,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v9";
+const VERSION = "v10.1";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -248,6 +248,43 @@ function persistEditorState() {
   });
 }
 
+// "yes" | "no" | "pending" — memoized so we don't re-probe 404s on every render.
+const exerciseImageStatus = new Map();
+
+function exerciseImageUrl(id) {
+  return `exercises/${id}.png`;
+}
+
+function makeExerciseImg(ex) {
+  const img = document.createElement("img");
+  img.className = "exercise-img";
+  img.src = exerciseImageUrl(ex.id);
+  img.alt = ex.name;
+  return img;
+}
+
+function renderExerciseFigure(container, ex) {
+  if (exerciseImageStatus.get(ex.id) === "yes") {
+    container.innerHTML = "";
+    container.appendChild(makeExerciseImg(ex));
+    return;
+  }
+  container.innerHTML = ex.svg;
+  const status = exerciseImageStatus.get(ex.id);
+  if (status === "no" || status === "pending") return;
+  exerciseImageStatus.set(ex.id, "pending");
+  const probe = new Image();
+  probe.onload = () => {
+    exerciseImageStatus.set(ex.id, "yes");
+    container.innerHTML = "";
+    container.appendChild(makeExerciseImg(ex));
+  };
+  probe.onerror = () => {
+    exerciseImageStatus.set(ex.id, "no");
+  };
+  probe.src = exerciseImageUrl(ex.id);
+}
+
 function renderEditList() {
   els.editList.innerHTML = "";
   els.editEmpty.classList.toggle("hidden", editor.exerciseIds.length > 0);
@@ -277,7 +314,7 @@ function renderEditList() {
         </svg>
       </button>
     `;
-    item.querySelector(".edit-item-svg").innerHTML = ex.svg;
+    renderExerciseFigure(item.querySelector(".edit-item-svg"), ex);
     item.querySelector(".edit-item-name").textContent = ex.name;
     item.querySelector(".btn-remove").addEventListener("click", () => {
       editor.exerciseIds.splice(index, 1);
@@ -424,7 +461,7 @@ function renderPicker() {
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
     `;
-    item.querySelector(".picker-item-svg").innerHTML = ex.svg;
+    renderExerciseFigure(item.querySelector(".picker-item-svg"), ex);
     item.querySelector(".picker-item-name").textContent = ex.name;
     item.addEventListener("click", () => {
       if (picker.selected.has(ex.id)) picker.selected.delete(ex.id);
@@ -501,24 +538,23 @@ const state = {
 
 function setPhaseUI(phase) {
   const ex = state.exercises[phase.exerciseIndex];
-  els.exerciseSvg.innerHTML = ex.svg;
+  renderExerciseFigure(els.exerciseSvg, ex);
   els.exerciseName.textContent = ex.name;
   els.progress.textContent = `${Math.min(phase.exerciseIndex + 1, state.exercises.length)} / ${state.exercises.length}`;
 
   if (phase.kind === "prepare") {
     els.phaseLabel.textContent = "Bereitmachen";
-    els.nextLabel.classList.remove("hidden");
     els.nextLabel.textContent = "Erste Übung:";
     els.timer.classList.remove("work", "warn");
     speak(`Erste Übung: ${ex.name}`);
   } else if (phase.kind === "work") {
     els.phaseLabel.textContent = "Übung";
-    els.nextLabel.classList.add("hidden");
+    // NBSP placeholder keeps the line's height so the figure below doesn't jump.
+    els.nextLabel.textContent = " ";
     els.timer.classList.add("work");
     els.timer.classList.remove("warn");
   } else if (phase.kind === "rest") {
     els.phaseLabel.textContent = "Pause";
-    els.nextLabel.classList.remove("hidden");
     els.nextLabel.textContent = "Nächste Übung:";
     els.timer.classList.remove("work", "warn");
     speak(`Nächste Übung: ${ex.name}`);
