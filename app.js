@@ -10,7 +10,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.6";
+const VERSION = "v10.7";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -106,22 +106,28 @@ let muted = false;
 let iosSessionUnlocked = false;
 
 function buildSilentWav() {
-  const buf = new ArrayBuffer(46);
-  const v = new DataView(buf);
-  v.setUint32( 0, 0x52494646, false);
-  v.setUint32( 4, 38,         true);
-  v.setUint32( 8, 0x57415645, false);
-  v.setUint32(12, 0x666d7420, false);
+  // 100 ms mono PCM — long enough for iOS to register as real media playback
+  // and upgrade the audio session to "playback" category (bypasses ringer switch).
+  // Amplitude 1/32767 ≈ −90 dBFS: technically non-silent so iOS doesn't discard it.
+  const rate = 44100;
+  const n    = Math.round(rate * 0.1); // 4410 samples = 100 ms
+  const data = n * 2;                   // 16-bit mono → 2 bytes per sample
+  const buf  = new ArrayBuffer(44 + data);
+  const v    = new DataView(buf);
+  v.setUint32( 0, 0x52494646, false); // "RIFF"
+  v.setUint32( 4, 36 + data,  true);
+  v.setUint32( 8, 0x57415645, false); // "WAVE"
+  v.setUint32(12, 0x666d7420, false); // "fmt "
   v.setUint32(16, 16,         true);
-  v.setUint16(20, 1,          true);
-  v.setUint16(22, 1,          true);
-  v.setUint32(24, 44100,      true);
-  v.setUint32(28, 88200,      true);
+  v.setUint16(20, 1,          true);  // PCM
+  v.setUint16(22, 1,          true);  // mono
+  v.setUint32(24, rate,       true);
+  v.setUint32(28, rate * 2,   true);
   v.setUint16(32, 2,          true);
   v.setUint16(34, 16,         true);
-  v.setUint32(36, 0x64617461, false);
-  v.setUint32(40, 2,          true);
-  v.setInt16( 44, 0,          true);
+  v.setUint32(36, 0x64617461, false); // "data"
+  v.setUint32(40, data,       true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, 1, true);
   return new Blob([buf], { type: "audio/wav" });
 }
 
@@ -137,28 +143,37 @@ async function unlockIOSAudioSession() {
   URL.revokeObjectURL(url);
 }
 
-// Safe to call from timers — only resumes the AudioContext, never plays the WAV.
+// Safe to call from timers and non-gesture contexts.
+// Only resumes an already-created AudioContext — never creates one, never plays the WAV.
 async function ensureAudio() {
-  if (!audioCtx) {
-    const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (Ctor) audioCtx = new Ctor();
-  }
   if (audioCtx && audioCtx.state !== "running") {
     try { await audioCtx.resume(); } catch (_) {}
   }
 }
 
-// Must be called from a user-gesture context (button tap, touchstart).
-// Replays the silent WAV when needed to re-establish the iOS audio session,
-// then resumes the AudioContext.
+// Must be called from a real click/tap handler (NOT touchstart).
+// iOS only upgrades the audio session to "playback" category (which bypasses the
+// ringer/mute switch) when <audio>.play() is triggered from a click or touchend event,
+// not from touchstart.  Creating the AudioContext here — before any await — keeps it
+// inside the user-gesture window so iOS allows resume() afterwards.
 async function ensureAudioSession() {
+  // 1. Create AudioContext synchronously (still within the user-gesture call stack).
+  if (!audioCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (Ctor) audioCtx = new Ctor();
+  }
+  // 2. Play the WAV to upgrade the iOS audio session to "playback" category.
   await unlockIOSAudioSession();
-  await ensureAudio();
+  // 3. Resume the context (session is now "playback", so beeps bypass the ringer switch).
+  if (audioCtx && audioCtx.state !== "running") {
+    try { await audioCtx.resume(); } catch (_) {}
+  }
 }
 
-// Every touch is a user gesture — use it to re-unlock the session if it was lost
-// (e.g. after a phone call or the app being backgrounded).
-document.addEventListener("touchstart", () => { ensureAudioSession().catch(() => {}); }, { passive: true });
+// touchstart: only resume — do NOT play the WAV here.
+// touchstart is insufficient for the iOS "playback" session upgrade; using it would
+// consume the iosSessionUnlocked flag and prevent the proper upgrade on the later click.
+document.addEventListener("touchstart", () => { ensureAudio().catch(() => {}); }, { passive: true });
 
 function beep(frequency, durationMs, when = 0, gain = 0.25) {
   if (!audioCtx || audioCtx.state !== "running" || muted) return;
