@@ -1,6 +1,11 @@
-import { CLASSIC_EXERCISE_IDS, EXERCISE_BY_ID } from "./exercises.js";
+import {
+  CLASSIC_EXERCISE_IDS,
+  EXERCISE_BY_ID,
+  WORK_MIN, WORK_MAX,
+  REST_MIN, REST_MAX,
+} from "./exercises.js";
 
-const STORAGE_KEY = "7min.workouts.v1";
+const STORAGE_KEY = "7min.workouts.v2";
 const LAST_USED_KEY = "7min.workouts.lastUsed";
 
 export const CLASSIC_WORKOUT_ID = "classic";
@@ -9,12 +14,37 @@ function makeClassicWorkout() {
   return {
     id: CLASSIC_WORKOUT_ID,
     name: "Klassisches Training",
-    exerciseIds: [...CLASSIC_EXERCISE_IDS],
+    exercises: CLASSIC_EXERCISE_IDS.map((id) => ({ exerciseId: id })),
   };
 }
 
-function isValidWorkout(w) {
-  return w && typeof w.id === "string" && typeof w.name === "string" && Array.isArray(w.exerciseIds);
+function sanitizeSeconds(value, min, max) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const v = Math.round(value);
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+function sanitizeEntry(e) {
+  if (!e || typeof e.exerciseId !== "string" || !EXERCISE_BY_ID[e.exerciseId]) return null;
+  const out = { exerciseId: e.exerciseId };
+  const w = sanitizeSeconds(e.workSeconds, WORK_MIN, WORK_MAX);
+  if (w !== undefined) out.workSeconds = w;
+  const r = sanitizeSeconds(e.restSeconds, REST_MIN, REST_MAX);
+  if (r !== undefined) out.restSeconds = r;
+  return out;
+}
+
+function sanitizeWorkout(w) {
+  if (!w || typeof w.id !== "string" || typeof w.name !== "string" || !Array.isArray(w.exercises)) {
+    return null;
+  }
+  return {
+    id: w.id,
+    name: w.name,
+    exercises: w.exercises.map(sanitizeEntry).filter(Boolean),
+  };
 }
 
 function load() {
@@ -24,7 +54,9 @@ function load() {
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every(isValidWorkout)) workouts = parsed;
+      if (Array.isArray(parsed)) {
+        workouts = parsed.map(sanitizeWorkout).filter(Boolean);
+      }
     } catch (_) {}
   }
   if (!workouts || workouts.length === 0) {
@@ -32,14 +64,9 @@ function load() {
     persist(workouts);
     return workouts;
   }
-  // Ensure classic always present
   if (!workouts.some((w) => w.id === CLASSIC_WORKOUT_ID)) {
     workouts.unshift(makeClassicWorkout());
     persist(workouts);
-  }
-  // Filter unknown exercise ids defensively
-  for (const w of workouts) {
-    w.exerciseIds = w.exerciseIds.filter((id) => EXERCISE_BY_ID[id]);
   }
   return workouts;
 }
@@ -64,9 +91,13 @@ function genId() {
   return "w_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
 }
 
-export function createWorkout(name = "Neues Training", exerciseIds = []) {
+export function createWorkout(name = "Neues Training", exercises = []) {
   const workouts = load();
-  const w = { id: genId(), name, exerciseIds: [...exerciseIds] };
+  const w = {
+    id: genId(),
+    name,
+    exercises: exercises.map(sanitizeEntry).filter(Boolean),
+  };
   workouts.push(w);
   persist(workouts);
   return w;
@@ -81,8 +112,8 @@ export function updateWorkout(id, patch) {
   if (typeof patch.name === "string" && !isProtectedWorkout(id)) {
     next.name = patch.name;
   }
-  if (Array.isArray(patch.exerciseIds)) {
-    next.exerciseIds = patch.exerciseIds.filter((eid) => EXERCISE_BY_ID[eid]);
+  if (Array.isArray(patch.exercises)) {
+    next.exercises = patch.exercises.map(sanitizeEntry).filter(Boolean);
   }
   workouts[idx] = next;
   persist(workouts);

@@ -1,4 +1,9 @@
-import { EXERCISES, EXERCISE_BY_ID, PREPARE_SECONDS, WORK_SECONDS, REST_SECONDS } from "./exercises.js";
+import {
+  EXERCISES, EXERCISE_BY_ID,
+  WORK_SECONDS, REST_SECONDS,
+  WORK_MIN, WORK_MAX, WORK_STEP,
+  REST_MIN, REST_MAX, REST_STEP,
+} from "./exercises.js";
 import {
   listWorkouts,
   getWorkout,
@@ -10,7 +15,7 @@ import {
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v10.7";
+const VERSION = "v11";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -98,6 +103,17 @@ const els = {
   exerciseSvg: document.getElementById("exercise-svg"),
   exerciseName: document.getElementById("exercise-name"),
   timer: document.getElementById("timer"),
+  // duration dialog
+  durDialog: document.getElementById("duration-dialog"),
+  durTitle: document.getElementById("duration-title"),
+  durWork: document.getElementById("duration-work"),
+  durWorkValue: document.getElementById("duration-work-value"),
+  durRest: document.getElementById("duration-rest"),
+  durRestValue: document.getElementById("duration-rest-value"),
+  durFirstHint: document.getElementById("duration-first-hint"),
+  durReset: document.getElementById("duration-reset"),
+  durCancel: document.getElementById("duration-cancel"),
+  durSave: document.getElementById("duration-save"),
 };
 
 // --- Audio ---
@@ -265,15 +281,18 @@ function renderWorkoutList() {
         <div class="workout-card-name"></div>
         <div class="workout-card-sub"></div>
       </div>
-      <span class="workout-card-edit" role="button" aria-label="Bearbeiten" title="Bearbeiten">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M14 4l6 6L8 22H2v-6L14 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <span class="workout-card-edit" role="button" aria-label="${isProtectedWorkout(w.id) ? "Ansehen" : "Bearbeiten"}" title="${isProtectedWorkout(w.id) ? "Ansehen" : "Bearbeiten"}">
+        ${isProtectedWorkout(w.id)
+          ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>`
+          : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6L8 22H2v-6L14 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
       </span>
     `;
     card.querySelector(".workout-card-name").textContent = w.name;
-    const count = w.exerciseIds.length;
-    const totalSec = count > 0 ? PREPARE_SECONDS + count * WORK_SECONDS + Math.max(0, count - 1) * REST_SECONDS : 0;
+    const count = w.exercises.length;
+    const totalSec = w.exercises.reduce(
+      (sum, e) => sum + (e.workSeconds ?? WORK_SECONDS) + (e.restSeconds ?? REST_SECONDS),
+      0
+    );
     const mm = Math.floor(totalSec / 60);
     const ss = totalSec % 60;
     const durationLabel = count > 0 ? ` · ${mm}:${String(ss).padStart(2, "0")} min` : "";
@@ -299,7 +318,7 @@ function renderWorkoutList() {
 const editor = {
   workoutId: null,
   name: "",
-  exerciseIds: [],
+  exercises: [],
 };
 
 function openEditor(workoutId) {
@@ -307,12 +326,13 @@ function openEditor(workoutId) {
   if (!w) return;
   editor.workoutId = w.id;
   editor.name = w.name;
-  editor.exerciseIds = [...w.exerciseIds];
+  editor.exercises = w.exercises.map((e) => ({ ...e }));
   const locked = isProtectedWorkout(w.id);
   els.editName.value = w.name;
   els.editName.disabled = locked;
   els.editLockedHint.classList.toggle("hidden", !locked);
   els.btnDeleteWorkout.classList.toggle("hidden", locked);
+  els.btnAddExercise.classList.toggle("hidden", locked);
   renderEditList();
   show(els.viewEdit);
 }
@@ -320,7 +340,7 @@ function openEditor(workoutId) {
 function persistEditorState() {
   updateWorkout(editor.workoutId, {
     name: editor.name,
-    exerciseIds: editor.exerciseIds,
+    exercises: editor.exercises,
   });
 }
 
@@ -376,15 +396,19 @@ function preloadExerciseImages() {
 
 function renderEditList() {
   els.editList.innerHTML = "";
-  els.editEmpty.classList.toggle("hidden", editor.exerciseIds.length > 0);
-  editor.exerciseIds.forEach((exId, index) => {
-    const ex = EXERCISE_BY_ID[exId];
+  els.editEmpty.classList.toggle("hidden", editor.exercises.length > 0);
+  const viewOnly = isProtectedWorkout(editor.workoutId);
+  editor.exercises.forEach((entry, index) => {
+    const ex = EXERCISE_BY_ID[entry.exerciseId];
     if (!ex) return;
+    const work = entry.workSeconds ?? WORK_SECONDS;
+    const rest = entry.restSeconds ?? REST_SECONDS;
+    const customized = entry.workSeconds !== undefined || entry.restSeconds !== undefined;
     const item = document.createElement("div");
     item.className = "edit-item";
     item.dataset.index = String(index);
     item.innerHTML = `
-      <span class="drag-handle" aria-label="Verschieben" title="Verschieben">
+      <span class="drag-handle${viewOnly ? " hidden" : ""}" aria-label="Verschieben" title="Verschieben">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="9" cy="6" r="1.5" fill="currentColor"/>
           <circle cx="15" cy="6" r="1.5" fill="currentColor"/>
@@ -395,8 +419,18 @@ function renderEditList() {
         </svg>
       </span>
       <div class="edit-item-svg"></div>
-      <div class="edit-item-name"></div>
-      <button class="btn-remove" type="button" aria-label="Entfernen" title="Entfernen">
+      <div class="edit-item-text">
+        <div class="edit-item-name"></div>
+        <div class="edit-item-meta"></div>
+      </div>
+      <button class="btn-edit-duration${viewOnly ? " hidden" : ""}" type="button" aria-label="Dauer bearbeiten" title="Dauer bearbeiten">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 9v4l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 3h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="btn-remove${viewOnly ? " hidden" : ""}" type="button" aria-label="Entfernen" title="Entfernen">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
           <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
@@ -405,13 +439,21 @@ function renderEditList() {
     `;
     renderExerciseFigure(item.querySelector(".edit-item-svg"), ex);
     item.querySelector(".edit-item-name").textContent = ex.name;
+    const meta = item.querySelector(".edit-item-meta");
+    meta.textContent = `${work}s Übung · ${rest}s Pause`;
+    meta.classList.toggle("customized", customized);
+    item.querySelector(".btn-edit-duration").addEventListener("click", () => {
+      openDurationDialog(index);
+    });
     item.querySelector(".btn-remove").addEventListener("click", () => {
-      editor.exerciseIds.splice(index, 1);
+      editor.exercises.splice(index, 1);
       persistEditorState();
       renderEditList();
     });
-    const handle = item.querySelector(".drag-handle");
-    handle.addEventListener("pointerdown", (ev) => startDrag(ev, item, index));
+    if (!viewOnly) {
+      const handle = item.querySelector(".drag-handle");
+      handle.addEventListener("pointerdown", (ev) => startDrag(ev, item, index));
+    }
     els.editList.appendChild(item);
   });
 }
@@ -478,8 +520,8 @@ function onDragEnd() {
   drag.item.classList.remove("dragging");
 
   if (drag.currentIndex !== drag.sourceIndex) {
-    const [moved] = editor.exerciseIds.splice(drag.sourceIndex, 1);
-    editor.exerciseIds.splice(drag.currentIndex, 0, moved);
+    const [moved] = editor.exercises.splice(drag.sourceIndex, 1);
+    editor.exercises.splice(drag.currentIndex, 0, moved);
     persistEditorState();
   }
   drag = null;
@@ -510,6 +552,76 @@ els.btnDeleteWorkout.addEventListener("click", () => {
 });
 els.btnAddExercise.addEventListener("click", () => openPicker());
 
+// --- Duration dialog ---
+els.durWork.min = String(WORK_MIN);
+els.durWork.max = String(WORK_MAX);
+els.durWork.step = String(WORK_STEP);
+els.durRest.min = String(REST_MIN);
+els.durRest.max = String(REST_MAX);
+els.durRest.step = String(REST_STEP);
+
+let durationEditIndex = -1;
+
+function updateDurationLabels() {
+  els.durWorkValue.textContent = `${els.durWork.value}s`;
+  els.durRestValue.textContent = `${els.durRest.value}s`;
+}
+
+els.durWork.addEventListener("input", updateDurationLabels);
+els.durRest.addEventListener("input", updateDurationLabels);
+
+function openDurationDialog(index) {
+  const entry = editor.exercises[index];
+  if (!entry) return;
+  const ex = EXERCISE_BY_ID[entry.exerciseId];
+  if (!ex) return;
+  durationEditIndex = index;
+  els.durTitle.textContent = ex.name;
+  els.durWork.value = String(entry.workSeconds ?? WORK_SECONDS);
+  els.durRest.value = String(entry.restSeconds ?? REST_SECONDS);
+  els.durFirstHint.classList.toggle("hidden", index !== 0);
+  updateDurationLabels();
+  if (typeof els.durDialog.showModal === "function") {
+    els.durDialog.showModal();
+  } else {
+    els.durDialog.setAttribute("open", "");
+  }
+}
+
+function closeDurationDialog() {
+  if (typeof els.durDialog.close === "function") els.durDialog.close();
+  else els.durDialog.removeAttribute("open");
+  durationEditIndex = -1;
+}
+
+els.durReset.addEventListener("click", () => {
+  els.durWork.value = String(WORK_SECONDS);
+  els.durRest.value = String(REST_SECONDS);
+  updateDurationLabels();
+});
+
+els.durCancel.addEventListener("click", () => closeDurationDialog());
+
+els.durSave.addEventListener("click", () => {
+  if (durationEditIndex < 0) return;
+  const entry = editor.exercises[durationEditIndex];
+  if (!entry) { closeDurationDialog(); return; }
+  const work = parseInt(els.durWork.value, 10);
+  const rest = parseInt(els.durRest.value, 10);
+  const next = { exerciseId: entry.exerciseId };
+  if (work !== WORK_SECONDS) next.workSeconds = work;
+  if (rest !== REST_SECONDS) next.restSeconds = rest;
+  editor.exercises[durationEditIndex] = next;
+  persistEditorState();
+  renderEditList();
+  closeDurationDialog();
+});
+
+// Close on backdrop click
+els.durDialog.addEventListener("click", (ev) => {
+  if (ev.target === els.durDialog) closeDurationDialog();
+});
+
 // --- Picker state ---
 const picker = {
   selected: new Set(),
@@ -527,7 +639,7 @@ function openPicker() {
 
 function renderPicker() {
   els.pickerList.innerHTML = "";
-  const existing = new Set(editor.exerciseIds);
+  const existing = new Set(editor.exercises.map((e) => e.exerciseId));
   const q = picker.query.trim().toLowerCase();
   const available = EXERCISES.filter((ex) => !existing.has(ex.id) && (q === "" || ex.name.toLowerCase().includes(q)));
   if (available.length === 0) {
@@ -577,7 +689,7 @@ els.btnPickerAdd.addEventListener("click", () => {
   if (picker.selected.size === 0) return;
   // Preserve order of EXERCISES for added items (consistent ordering)
   const ordered = EXERCISES.map((e) => e.id).filter((id) => picker.selected.has(id));
-  editor.exerciseIds.push(...ordered);
+  editor.exercises.push(...ordered.map((id) => ({ exerciseId: id })));
   persistEditorState();
   renderEditList();
   show(els.viewEdit);
@@ -600,15 +712,17 @@ els.btnNewWorkout.addEventListener("click", () => {
 });
 
 // --- Session ---
-function buildSchedule(exercises) {
+function buildSchedule(entries) {
   const phases = [];
-  if (exercises.length === 0) return phases;
-  phases.push({ kind: "prepare", duration: PREPARE_SECONDS, exerciseIndex: 0 });
-  for (let i = 0; i < exercises.length; i++) {
-    phases.push({ kind: "work", duration: WORK_SECONDS, exerciseIndex: i });
-    if (i < exercises.length - 1) {
-      phases.push({ kind: "rest", duration: REST_SECONDS, exerciseIndex: i + 1 });
+  if (entries.length === 0) return phases;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const rest = entry.restSeconds ?? REST_SECONDS;
+    const work = entry.workSeconds ?? WORK_SECONDS;
+    if (rest > 0) {
+      phases.push({ kind: "rest", duration: rest, exerciseIndex: i });
     }
+    phases.push({ kind: "work", duration: work, exerciseIndex: i });
   }
   return phases;
 }
@@ -631,23 +745,32 @@ function setPhaseUI(phase) {
   els.exerciseName.textContent = ex.name;
   els.progress.textContent = `${Math.min(phase.exerciseIndex + 1, state.exercises.length)} / ${state.exercises.length}`;
 
-  if (phase.kind === "prepare") {
-    els.phaseLabel.textContent = "Bereitmachen";
-    els.nextLabel.textContent = "Erste Übung:";
-    els.timer.classList.remove("work", "warn");
-    speak(`Erste Übung: ${ex.name}`);
-  } else if (phase.kind === "work") {
+  if (phase.kind === "work") {
     els.phaseLabel.textContent = "Übung";
     // NBSP placeholder keeps the line's height so the figure below doesn't jump.
     els.nextLabel.textContent = " ";
     els.timer.classList.add("work");
     els.timer.classList.remove("warn");
+    if (phase.exerciseIndex === 0 && !precedingRestExists(0)) {
+      speak(`Erste Übung: ${ex.name}`);
+    }
   } else if (phase.kind === "rest") {
-    els.phaseLabel.textContent = "Pause";
-    els.nextLabel.textContent = "Nächste Übung:";
-    els.timer.classList.remove("work", "warn");
-    speak(`Nächste Übung: ${ex.name}`);
+    if (phase.exerciseIndex === 0) {
+      els.phaseLabel.textContent = "Bereitmachen";
+      els.nextLabel.textContent = "Erste Übung:";
+      els.timer.classList.remove("work", "warn");
+      speak(`Erste Übung: ${ex.name}`);
+    } else {
+      els.phaseLabel.textContent = "Pause";
+      els.nextLabel.textContent = "Nächste Übung:";
+      els.timer.classList.remove("work", "warn");
+      speak(`Nächste Übung: ${ex.name}`);
+    }
   }
+}
+
+function precedingRestExists(exerciseIndex) {
+  return state.schedule.some((p) => p.kind === "rest" && p.exerciseIndex === exerciseIndex);
 }
 
 function startPhase(index) {
@@ -664,11 +787,13 @@ function currentExerciseIndex() {
 }
 
 function findPhaseBeforeExercise(exerciseIndex) {
-  if (exerciseIndex === 0) {
-    return state.schedule.findIndex((p) => p.kind === "prepare");
-  }
-  return state.schedule.findIndex(
+  const restIdx = state.schedule.findIndex(
     (p) => p.kind === "rest" && p.exerciseIndex === exerciseIndex
+  );
+  if (restIdx >= 0) return restIdx;
+  // No rest phase (rest=0): fall back to the work phase for this exercise.
+  return state.schedule.findIndex(
+    (p) => p.kind === "work" && p.exerciseIndex === exerciseIndex
   );
 }
 
@@ -719,7 +844,9 @@ function tick() {
     } else if (secLeft > 3) {
       els.timer.classList.remove("warn");
     }
-    if (state.lastSecondShown !== -1 && secLeft === 15 && state.schedule[state.phaseIndex]?.kind === "work") {
+    const curPhase = state.schedule[state.phaseIndex];
+    if (state.lastSecondShown !== -1 && curPhase?.kind === "work" &&
+        secLeft === Math.floor(curPhase.duration / 2)) {
       halfTimeBeep();
     }
     state.lastSecondShown = secLeft;
@@ -754,13 +881,14 @@ function advancePhase() {
 function startWorkout(workoutId) {
   const w = getWorkout(workoutId);
   if (!w) return;
-  const exercises = w.exerciseIds.map((id) => EXERCISE_BY_ID[id]).filter(Boolean);
+  const entries = w.exercises.filter((e) => EXERCISE_BY_ID[e.exerciseId]);
+  const exercises = entries.map((e) => EXERCISE_BY_ID[e.exerciseId]);
   if (exercises.length === 0) return;
   setLastUsedWorkoutId(workoutId);
   ensureAudioSession();
   state.workoutId = workoutId;
   state.exercises = exercises;
-  state.schedule = buildSchedule(exercises);
+  state.schedule = buildSchedule(entries);
   state.status = "running";
   show(els.viewSession);
   els.btnPause.classList.remove("hidden");

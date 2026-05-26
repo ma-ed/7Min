@@ -1,4 +1,4 @@
-const CACHE = "7min-v10.7";
+const CACHE = "7min-v11";
 const ASSETS = [
   "./",
   "./index.html",

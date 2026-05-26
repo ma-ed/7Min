@@ -103,8 +103,30 @@
     </section>
   </main>
 
+  <dialog id="duration-dialog" class="duration-dialog">
+    <form method="dialog" class="duration-form">
+      <h3 id="duration-title" class="duration-title">Übung</h3>
+      <div class="duration-row">
+        <label for="duration-work">Übungsdauer</label>
+        <input id="duration-work" type="range" />
+        <span id="duration-work-value" class="duration-value">30s</span>
+      </div>
+      <div class="duration-row">
+        <label for="duration-rest">Pause davor</label>
+        <input id="duration-rest" type="range" />
+        <span id="duration-rest-value" class="duration-value">10s</span>
+      </div>
+      <p id="duration-first-hint" class="duration-hint hidden">Vor der ersten Übung ersetzt diese Pause die Bereitmachen-Phase.</p>
+      <div class="duration-actions">
+        <button id="duration-reset" type="button" class="btn btn-ghost">Standard</button>
+        <button id="duration-cancel" type="button" class="btn btn-secondary">Abbrechen</button>
+        <button id="duration-save" type="button" class="btn btn-primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="version-label" class="version-label"></div>
   <button id="btn-theme" class="theme-toggle" aria-label="Farbschema wechseln" title="Farbschema wechseln"></button>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=11"></script>
 </body>
 </html>

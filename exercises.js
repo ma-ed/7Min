@@ -438,3 +438,10 @@ export const CLASSIC_EXERCISE_IDS = [
 export const PREPARE_SECONDS = 10;
 export const WORK_SECONDS = 30;
 export const REST_SECONDS = 10;
+
+export const WORK_MIN = 5;
+export const WORK_MAX = 180;
+export const WORK_STEP = 5;
+export const REST_MIN = 0;
+export const REST_MAX = 120;
+export const REST_STEP = 5;

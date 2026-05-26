@@ -33,26 +33,26 @@ Five views toggled via a single `show(view)` helper in [app.js](app.js) — all 
 - `view-list` — workout cards
 - `view-edit` — name + reorderable exercise list for one workout
 - `view-picker` — multi-select exercise chooser
-- `view-session` — running timer (prepare → work → rest → work → …)
+- `view-session` — running timer (rest → work → rest → work → …); the first rest is labelled "Bereitmachen"
 - `view-finished` — completion screen
 
 ### Data model & persistence
 
-[workouts.js](workouts.js) is the only module that touches `localStorage` (keys `7min.workouts.v1`, `7min.workouts.lastUsed`). A workout is `{ id, name, exerciseIds: string[] }`. On every `load()` the module:
+[workouts.js](workouts.js) is the only module that touches `localStorage` (keys `7min.workouts.v2`, `7min.workouts.lastUsed`). A workout is `{ id, name, exercises: Array<{ exerciseId, workSeconds?, restSeconds? }> }`. Missing `workSeconds`/`restSeconds` mean the defaults `WORK_SECONDS` / `REST_SECONDS` apply. On every `load()` the module:
 
 - seeds a built-in "Klassisches Training" (id `"classic"`) if none exists,
 - re-inserts it if a user deleted it,
-- filters out any `exerciseIds` not present in `EXERCISE_BY_ID` (defensive against removed exercises).
+- sanitizes each entry (drops unknown `exerciseId`, clamps custom durations to `[WORK_MIN, WORK_MAX]` / `[REST_MIN, REST_MAX]`).
 
-`isProtectedWorkout(id)` gates rename and delete for the classic workout — the editor disables the name input and hides the delete button when true.
+`isProtectedWorkout(id)` gates rename and delete for the classic workout — the editor disables the name input and hides the delete button when true. Per-exercise durations are *not* protected; the classic workout's durations can be edited like any other.
 
-[exercises.js](exercises.js) holds the static exercise catalog. Each exercise has an inline SVG (stick-figure built via the `stick()` template helper) rendered directly into the DOM via `innerHTML`. The phase durations live here too: `PREPARE_SECONDS = 10`, `WORK_SECONDS = 30`, `REST_SECONDS = 10`. `CLASSIC_EXERCISE_IDS` defines the classic 12-exercise sequence.
+[exercises.js](exercises.js) holds the static exercise catalog. Each exercise has an inline SVG (stick-figure built via the `stick()` template helper) rendered directly into the DOM via `innerHTML`. The duration defaults and slider bounds live here too: `WORK_SECONDS = 30`, `REST_SECONDS = 10`, `WORK_MIN/MAX/STEP`, `REST_MIN/MAX/STEP`. `CLASSIC_EXERCISE_IDS` defines the classic 12-exercise sequence. `PREPARE_SECONDS` is retained for historical reference but no longer used — the first exercise's `restSeconds` (default 10s) plays that role and is labelled "Bereitmachen" in the UI.
 
 ### Session timer
 
-`buildSchedule(exercises)` produces a flat `phases` array: one `prepare`, then alternating `work`/`rest` (no trailing rest). The session loop uses a 100 ms `setInterval` (`tick`) that compares `performance.now()` to `phaseEndAt` — durations are wall-clock based, so a backgrounded tab doesn't drift. On pause, `remainingMs` is captured and `phaseEndAt` is recomputed on resume.
+`buildSchedule(entries)` produces a flat `phases` array: for each entry, a `rest` phase (skipped if `restSeconds === 0`) followed by a `work` phase. There is no separate `prepare` kind — the first `rest` phase doubles as the "Bereitmachen" lead-in. The session loop uses a 100 ms `setInterval` (`tick`) that compares `performance.now()` to `phaseEndAt` — durations are wall-clock based, so a backgrounded tab doesn't drift. On pause, `remainingMs` is captured and `phaseEndAt` is recomputed on resume.
 
-Prev/Next buttons call `jumpToExercise()`, which finds the `rest` (or `prepare`) phase that *precedes* the target exercise so the user gets the lead-in countdown again.
+Prev/Next buttons call `jumpToExercise()`, which finds the `rest` phase that *precedes* the target exercise (or, if `restSeconds === 0` for that exercise, jumps directly to its `work` phase).
 
 ### Audio & iOS quirks
 
@@ -70,7 +70,7 @@ iOS PWA gotchas the code works around — preserve these when refactoring:
 
 ### Drag & drop reorder
 
-Custom pointer-event implementation in [app.js](app.js) (`startDrag`/`onDragMove`/`onDragEnd`) — not HTML5 DnD, because it needs to work on touch. A cloned "ghost" follows the pointer; the real item is reinserted into the DOM as the pointer crosses item midpoints, and the underlying `editor.exerciseIds` array is mutated only on drop.
+Custom pointer-event implementation in [app.js](app.js) (`startDrag`/`onDragMove`/`onDragEnd`) — not HTML5 DnD, because it needs to work on touch. A cloned "ghost" follows the pointer; the real item is reinserted into the DOM as the pointer crosses item midpoints, and the underlying `editor.exercises` array is mutated only on drop.
 
 ### Service worker
 
