@@ -88,7 +88,8 @@ html, body {
 }
 
 #app {
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
@@ -96,6 +97,7 @@ html, body {
 
 .view {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -506,6 +508,18 @@ h1 {
   margin-top: -0.25rem;
 }
 
+.name-error {
+  width: 100%;
+  font-size: 0.8rem;
+  color: var(--accent-warn);
+  margin-top: -0.25rem;
+  padding: 0 0.75rem;
+}
+
+.edit-name.invalid {
+  border-color: var(--accent-warn);
+}
+
 .edit-list {
   width: 100%;
   flex: 1;
@@ -696,6 +710,7 @@ h1 {
 .picker-list {
   width: 100%;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -746,6 +761,9 @@ h1 {
   justify-content: center;
   flex-shrink: 0;
   color: transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .picker-item.checked .picker-check {
@@ -857,8 +875,6 @@ h1 {
 @media (orientation: landscape) and (max-height: 500px) {
 
   #app {
-    height: 100dvh;
-    overflow: hidden;
     padding: max(0.25rem, env(safe-area-inset-top))
              max(0.75rem, env(safe-area-inset-right))
              max(0.25rem, env(safe-area-inset-bottom))

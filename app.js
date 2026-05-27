@@ -11,11 +11,12 @@ import {
   updateWorkout,
   deleteWorkout,
   isProtectedWorkout,
+  isNameTaken,
   setLastUsedWorkoutId,
   getLastUsedWorkoutId,
 } from "./workouts.js";
 
-const VERSION = "v11";
+const VERSION = "v12";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -79,6 +80,7 @@ const els = {
   btnEditBack: document.getElementById("btn-edit-back"),
   editName: document.getElementById("edit-name"),
   editLockedHint: document.getElementById("edit-locked-hint"),
+  editNameError: document.getElementById("edit-name-error"),
   editList: document.getElementById("edit-exercise-list"),
   editEmpty: document.getElementById("edit-empty"),
   btnAddExercise: document.getElementById("btn-add-exercise"),
@@ -333,6 +335,7 @@ function openEditor(workoutId) {
   els.editLockedHint.classList.toggle("hidden", !locked);
   els.btnDeleteWorkout.classList.toggle("hidden", locked);
   els.btnAddExercise.classList.toggle("hidden", locked);
+  clearEditNameError();
   renderEditList();
   show(els.viewEdit);
 }
@@ -529,14 +532,27 @@ function onDragEnd() {
 }
 
 // --- Editor events ---
+function validateEditName() {
+  const duplicate = !!editor.name.trim() && isNameTaken(editor.name, editor.workoutId);
+  els.editNameError.classList.toggle("hidden", !duplicate);
+  els.editName.classList.toggle("invalid", duplicate);
+  return !duplicate;
+}
+
+function clearEditNameError() {
+  els.editNameError.classList.add("hidden");
+  els.editName.classList.remove("invalid");
+}
+
 els.editName.addEventListener("input", () => {
   editor.name = els.editName.value;
+  validateEditName();
 });
 els.editName.addEventListener("blur", () => {
-  persistEditorState();
+  if (validateEditName()) persistEditorState();
 });
 els.btnEditBack.addEventListener("click", () => {
-  // Persist and ensure name not empty
+  if (!validateEditName()) return;
   if (!editor.name.trim() && !isProtectedWorkout(editor.workoutId)) {
     editor.name = "Neues Training";
     els.editName.value = editor.name;
@@ -624,7 +640,7 @@ els.durDialog.addEventListener("click", (ev) => {
 
 // --- Picker state ---
 const picker = {
-  selected: new Set(),
+  selected: new Map(),
   query: "",
 };
 
@@ -639,45 +655,50 @@ function openPicker() {
 
 function renderPicker() {
   els.pickerList.innerHTML = "";
-  const existing = new Set(editor.exercises.map((e) => e.exerciseId));
   const q = picker.query.trim().toLowerCase();
-  const available = EXERCISES.filter((ex) => !existing.has(ex.id) && (q === "" || ex.name.toLowerCase().includes(q)));
+  const available = EXERCISES.filter((ex) => q === "" || ex.name.toLowerCase().includes(q));
   if (available.length === 0) {
     const empty = document.createElement("div");
     empty.className = "picker-empty";
-    empty.textContent = existing.size >= EXERCISES.length
-      ? "Alle Übungen sind bereits im Training."
-      : "Keine Treffer.";
+    empty.textContent = "Keine Treffer.";
     els.pickerList.appendChild(empty);
     return;
   }
   for (const ex of available) {
     const item = document.createElement("div");
     item.className = "picker-item";
-    if (picker.selected.has(ex.id)) item.classList.add("checked");
     item.innerHTML = `
       <div class="picker-item-svg"></div>
       <div class="picker-item-name"></div>
-      <span class="picker-check">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </span>
+      <span class="picker-check"></span>
     `;
     renderExerciseFigure(item.querySelector(".picker-item-svg"), ex);
     item.querySelector(".picker-item-name").textContent = ex.name;
+    renderPickerItemCount(item, picker.selected.get(ex.id) ?? 0);
     item.addEventListener("click", () => {
-      if (picker.selected.has(ex.id)) picker.selected.delete(ex.id);
-      else picker.selected.add(ex.id);
-      item.classList.toggle("checked");
+      const prev = picker.selected.get(ex.id) ?? 0;
+      picker.selected.set(ex.id, prev + 1);
+      renderPickerItemCount(item, prev + 1);
       updatePickerAddButton();
     });
     els.pickerList.appendChild(item);
   }
 }
 
+function renderPickerItemCount(item, count) {
+  item.classList.toggle("checked", count > 0);
+  const badge = item.querySelector(".picker-check");
+  if (count > 1) {
+    badge.textContent = `×${count}`;
+  } else {
+    badge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+}
+
 function updatePickerAddButton() {
-  const n = picker.selected.size;
-  els.btnPickerAdd.textContent = n === 0 ? "Hinzufügen" : `Hinzufügen (${n})`;
-  els.btnPickerAdd.disabled = n === 0;
+  const total = [...picker.selected.values()].reduce((s, n) => s + n, 0);
+  els.btnPickerAdd.textContent = total === 0 ? "Hinzufügen" : `Hinzufügen (${total})`;
+  els.btnPickerAdd.disabled = total === 0;
 }
 
 els.pickerSearch.addEventListener("input", () => {
@@ -687,9 +708,10 @@ els.pickerSearch.addEventListener("input", () => {
 els.btnPickerBack.addEventListener("click", () => show(els.viewEdit));
 els.btnPickerAdd.addEventListener("click", () => {
   if (picker.selected.size === 0) return;
-  // Preserve order of EXERCISES for added items (consistent ordering)
-  const ordered = EXERCISES.map((e) => e.id).filter((id) => picker.selected.has(id));
-  editor.exercises.push(...ordered.map((id) => ({ exerciseId: id })));
+  const ordered = EXERCISES
+    .filter((e) => picker.selected.has(e.id))
+    .flatMap((e) => Array.from({ length: picker.selected.get(e.id) }, () => ({ exerciseId: e.id })));
+  editor.exercises.push(...ordered);
   persistEditorState();
   renderEditList();
   show(els.viewEdit);

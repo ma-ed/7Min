@@ -13,7 +13,7 @@ export const CLASSIC_WORKOUT_ID = "classic";
 function makeClassicWorkout() {
   return {
     id: CLASSIC_WORKOUT_ID,
-    name: "Klassisches Training",
+    name: "Klassisches 7-Minute-Workout",
     exercises: CLASSIC_EXERCISE_IDS.map((id) => ({ exerciseId: id })),
   };
 }
@@ -64,9 +64,16 @@ function load() {
     persist(workouts);
     return workouts;
   }
-  if (!workouts.some((w) => w.id === CLASSIC_WORKOUT_ID)) {
+  const classicIdx = workouts.findIndex((w) => w.id === CLASSIC_WORKOUT_ID);
+  if (classicIdx < 0) {
     workouts.unshift(makeClassicWorkout());
     persist(workouts);
+  } else {
+    const canonical = makeClassicWorkout();
+    if (workouts[classicIdx].name !== canonical.name) {
+      workouts[classicIdx] = { ...workouts[classicIdx], name: canonical.name };
+      persist(workouts);
+    }
   }
   return workouts;
 }
@@ -85,6 +92,11 @@ export function getWorkout(id) {
 
 export function isProtectedWorkout(id) {
   return id === CLASSIC_WORKOUT_ID;
+}
+
+export function isNameTaken(name, excludeId) {
+  const normalized = name.trim().toLowerCase();
+  return load().some((w) => w.id !== excludeId && w.name.trim().toLowerCase() === normalized);
 }
 
 function genId() {
