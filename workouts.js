@@ -210,6 +210,13 @@ export function loadHistory() {
   return [];
 }
 
+// Löscht alle lokalen Nutzerdaten (beim Abmelden aufrufen, bevor ein anderer User einloggt).
+export function clearLocalData() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+  try { localStorage.removeItem(LAST_USED_KEY); } catch (_) {}
+  try { localStorage.removeItem(HISTORY_KEY); } catch (_) {}
+}
+
 export function getStats() {
   const history = loadHistory();
   if (history.length === 0) return null;

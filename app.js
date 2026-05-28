@@ -21,6 +21,7 @@ import {
   setDbSync,
   importWorkouts,
   importHistory,
+  clearLocalData,
 } from "./workouts.js";
 import { getAuth, login, logout } from "./auth.js";
 import {
@@ -39,7 +40,7 @@ import {
   sendAchievement,
 } from "./db.js";
 
-const VERSION = "v15";
+const VERSION = "v15.1";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -1234,6 +1235,7 @@ els.btnAccountClose.addEventListener("click", () => els.accountDialog.close());
 
 els.btnLogout.addEventListener("click", () => {
   if (confirm("Wirklich abmelden? Deine Daten bleiben in der Cloud erhalten.")) {
+    clearLocalData();
     logout(); // lädt die Seite neu
   }
 });
