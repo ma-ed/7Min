@@ -40,7 +40,7 @@ import {
   sendAchievement,
 } from "./db.js";
 
-const VERSION = "v15.1";
+const VERSION = "v15.2";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -372,6 +372,7 @@ const editor = {
   workoutId: null,
   name: "",
   exercises: [],
+  hadExercisesOnOpen: false,
 };
 
 function openEditor(workoutId) {
@@ -380,6 +381,7 @@ function openEditor(workoutId) {
   editor.workoutId = w.id;
   editor.name = w.name;
   editor.exercises = w.exercises.map((e) => ({ ...e }));
+  editor.hadExercisesOnOpen = w.exercises.length > 0;
   const locked = isProtectedWorkout(w.id);
   els.editName.value = w.name;
   els.editName.disabled = locked;
@@ -604,6 +606,14 @@ els.editName.addEventListener("blur", () => {
 });
 els.btnEditBack.addEventListener("click", () => {
   if (!validateEditName()) return;
+  if (editor.exercises.length === 0 && !isProtectedWorkout(editor.workoutId)) {
+    if (editor.hadExercisesOnOpen) {
+      if (!confirm(`Training „${editor.name}" hat keine Übungen mehr. Wirklich löschen?`)) return;
+    }
+    deleteWorkout(editor.workoutId);
+    goToList();
+    return;
+  }
   if (!editor.name.trim() && !isProtectedWorkout(editor.workoutId)) {
     editor.name = "Neues Training";
     els.editName.value = editor.name;
@@ -1166,6 +1176,8 @@ els.btnLogin.addEventListener("click", async () => {
 
   const auth = await login(username, pin);
   initDb(auth.uid);
+  els.btnInbox.classList.remove("hidden");
+  els.btnAccount.classList.remove("hidden");
   renderWorkoutList();
   show(els.viewList);
   initOnlineSync(auth);
