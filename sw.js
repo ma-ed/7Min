@@ -1,4 +1,4 @@
-const CACHE = "7min-v12.1";
+const CACHE = "7min-v15";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,9 @@ const ASSETS = [
   "./app.js",
   "./exercises.js",
   "./workouts.js",
+  "./auth.js",
+  "./db.js",
+  "./firebase-config.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

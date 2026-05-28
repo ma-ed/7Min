@@ -8,6 +8,18 @@ import {
 const STORAGE_KEY = "7min.workouts.v2";
 const LAST_USED_KEY = "7min.workouts.lastUsed";
 
+// Optionale Firestore-Sync-Funktionen – werden von app.js nach dem Login gesetzt.
+const _db = {
+  saveWorkout:      null, // (workout) => Promise
+  removeWorkout:    null, // (id)      => Promise
+  saveHistoryEntry: null, // (entry)   => Promise
+  clearAllHistory:  null, // ()        => Promise
+};
+
+export function setDbSync(fns) {
+  Object.assign(_db, fns);
+}
+
 export const CLASSIC_WORKOUT_ID = "classic";
 
 function makeClassicWorkout() {
@@ -112,6 +124,7 @@ export function createWorkout(name = "Neues Training", exercises = []) {
   };
   workouts.push(w);
   persist(workouts);
+  _db.saveWorkout?.(w)?.catch?.(() => {});
   return w;
 }
 
@@ -129,6 +142,7 @@ export function updateWorkout(id, patch) {
   }
   workouts[idx] = next;
   persist(workouts);
+  _db.saveWorkout?.(next)?.catch?.(() => {});
   return next;
 }
 
@@ -136,6 +150,7 @@ export function deleteWorkout(id) {
   if (isProtectedWorkout(id)) return false;
   const workouts = load().filter((w) => w.id !== id);
   persist(workouts);
+  _db.removeWorkout?.(id)?.catch?.(() => {});
   return true;
 }
 
@@ -145,4 +160,83 @@ export function setLastUsedWorkoutId(id) {
 
 export function getLastUsedWorkoutId() {
   try { return localStorage.getItem(LAST_USED_KEY); } catch (_) { return null; }
+}
+
+// --- Training history ---
+
+const HISTORY_KEY = "7min.history";
+
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function logCompletion({ workoutId, workoutName, exerciseCount, totalSeconds }) {
+  const history = loadHistory();
+  const entry = { date: localDateStr(), workoutId, workoutName, exerciseCount, totalSeconds };
+  history.unshift(entry);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+  _db.saveHistoryEntry?.(entry)?.catch?.(() => {});
+}
+
+export function clearHistory() {
+  try { localStorage.removeItem(HISTORY_KEY); } catch (_) {}
+  _db.clearAllHistory?.()?.catch?.(() => {});
+}
+
+// Ersetzt den gesamten localStorage-Workoutbestand durch Firestore-Daten.
+export function importWorkouts(workouts) {
+  const sanitized = workouts.map(sanitizeWorkout).filter(Boolean);
+  if (sanitized.length === 0) return;
+  if (!sanitized.find(w => w.id === CLASSIC_WORKOUT_ID)) {
+    sanitized.unshift(makeClassicWorkout());
+  }
+  persist(sanitized);
+}
+
+// Ersetzt den History-Cache durch Firestore-Daten.
+export function importHistory(history) {
+  if (!Array.isArray(history) || history.length === 0) return;
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+}
+
+export function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (_) {}
+  return [];
+}
+
+export function getStats() {
+  const history = loadHistory();
+  if (history.length === 0) return null;
+
+  const totalSessions = history.length;
+  const totalSeconds = history.reduce((s, e) => s + (e.totalSeconds || 0), 0);
+  const totalMins = Math.round(totalSeconds / 60);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const totalTimeStr = hours > 0 ? `${hours} Std ${mins} Min` : `${mins} Min`;
+  const totalExercises = history.reduce((s, e) => s + (e.exerciseCount || 0), 0);
+
+  // Current streak: count consecutive days backwards from today
+  const dates = new Set(history.map((e) => e.date));
+  let streak = 0;
+  const cursor = new Date();
+  while (dates.has(localDateStr(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Favorite: workout with most completions
+  const counts = {};
+  for (const e of history) {
+    counts[e.workoutName] = (counts[e.workoutName] || 0) + 1;
+  }
+  const favoriteName = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+  return { totalSessions, totalTimeStr, totalExercises, streak, favoriteName };
 }

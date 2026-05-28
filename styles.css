@@ -245,8 +245,13 @@ h1 {
   color: var(--fg-dim);
 }
 
-.btn-icon.muted {
+.btn-icon.muted,
+.btn-icon-warn {
   color: var(--accent-warn);
+}
+
+.btn-icon-warn:hover {
+  background: rgba(239, 68, 68, 0.15);
 }
 
 /* Exercise display */
@@ -385,6 +390,10 @@ h1 {
 
 .page-header.with-back {
   justify-content: flex-start;
+}
+
+.page-header.with-actions {
+  justify-content: space-between;
 }
 
 .page-header h1 {
@@ -871,6 +880,272 @@ h1 {
   margin-right: auto;
 }
 
+/* ---------- Stats dashboard ---------- */
+
+#view-stats {
+  justify-content: flex-start;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.stats-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.stats-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.stat-card {
+  background: var(--bg-elev);
+  border-radius: 14px;
+  padding: 1.1rem 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.stat-value {
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  text-align: center;
+}
+
+.stats-favorite {
+  background: var(--bg-elev);
+  border-radius: 14px;
+  padding: 1rem;
+  width: 100%;
+  text-align: center;
+}
+
+.stats-favorite-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+}
+
+.stats-favorite-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.stats-empty {
+  color: var(--fg-dim);
+  font-size: 1rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.stats-history-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats-history-title {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--fg-dim);
+}
+
+.stats-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stats-history-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--bg-elev);
+  font-size: 0.88rem;
+}
+
+.stats-history-item:last-child {
+  border-bottom: none;
+}
+
+.stats-history-date {
+  flex-shrink: 0;
+  width: 4rem;
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-history-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+
+.stats-history-dur {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Login view ── */
+
+.login-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  max-width: 340px;
+  width: 100%;
+  padding: 0 1rem;
+}
+
+.login-logo {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+
+.login-heading {
+  margin: 0;
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.login-hint {
+  color: var(--fg-dim);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  text-align: center;
+  margin: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.login-input {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.login-error {
+  color: var(--accent-warn);
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── List header – mehrere Buttons rechts ── */
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Benachrichtigungspunkt auf dem Posteingang-Button */
+.btn-icon-badge {
+  position: relative;
+}
+
+.btn-icon-badge::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent-warn);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  display: none;
+}
+
+.btn-icon-badge.has-unread::after {
+  display: block;
+}
+
+/* ── Posteingang-Inhalt ── */
+
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.inbox-item {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.inbox-item-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.inbox-item-text {
+  color: var(--fg-dim);
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.inbox-empty {
+  text-align: center;
+  color: var(--fg-dim);
+  padding: 0.75rem 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 /* ── Landscape phones (short viewport ≤ 500 px tall) ── */
 @media (orientation: landscape) and (max-height: 500px) {
 
@@ -943,5 +1218,34 @@ h1 {
   /* Finished screen: shrink trophy so everything fits */
   .trophy {
     font-size: 3.5rem;
+  }
+
+  /* Stats dashboard: two-column layout */
+  #view-stats {
+    overflow-y: hidden;
+  }
+
+  #view-stats .stats-content {
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+    padding-bottom: 0;
+    gap: 1rem;
+  }
+
+  #view-stats .stats-left {
+    width: 45%;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  #view-stats .stats-history-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-left: 1rem;
+    border-left: 1px solid var(--bg-elev);
+    gap: 0.35rem;
   }
 }

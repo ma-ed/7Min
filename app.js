@@ -14,9 +14,32 @@ import {
   isNameTaken,
   setLastUsedWorkoutId,
   getLastUsedWorkoutId,
+  logCompletion,
+  loadHistory,
+  getStats,
+  clearHistory,
+  setDbSync,
+  importWorkouts,
+  importHistory,
 } from "./workouts.js";
+import { getAuth, login, logout } from "./auth.js";
+import {
+  isConfigured,
+  initDb,
+  fetchAllWorkouts,
+  saveWorkout,
+  removeWorkout,
+  fetchHistory,
+  saveHistoryEntry,
+  clearAllHistory,
+  saveProfile,
+  findUserByUsername,
+  subscribeInbox,
+  markInboxRead,
+  sendAchievement,
+} from "./db.js";
 
-const VERSION = "v12.1";
+const VERSION = "v15";
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -68,14 +91,24 @@ applyTheme(getTheme());
 
 const els = {
   // views
+  viewLogin: document.getElementById("view-login"),
   viewList: document.getElementById("view-list"),
   viewEdit: document.getElementById("view-edit"),
   viewPicker: document.getElementById("view-picker"),
   viewSession: document.getElementById("view-session"),
   viewFinished: document.getElementById("view-finished"),
+  viewStats: document.getElementById("view-stats"),
+  // login
+  loginUsername: document.getElementById("login-username"),
+  loginPin: document.getElementById("login-pin"),
+  btnLogin: document.getElementById("btn-login"),
+  loginError: document.getElementById("login-error"),
   // list
   workoutList: document.getElementById("workout-list"),
   btnNewWorkout: document.getElementById("btn-new-workout"),
+  btnStats: document.getElementById("btn-stats"),
+  btnInbox: document.getElementById("btn-inbox"),
+  btnAccount: document.getElementById("btn-account"),
   // editor
   btnEditBack: document.getElementById("btn-edit-back"),
   editName: document.getElementById("edit-name"),
@@ -94,6 +127,7 @@ const els = {
   btnPause: document.getElementById("btn-pause"),
   btnResume: document.getElementById("btn-resume"),
   btnStop: document.getElementById("btn-stop"),
+  btnShareAchievement: document.getElementById("btn-share-achievement"),
   btnRestart: document.getElementById("btn-restart"),
   btnBackToList: document.getElementById("btn-back-to-list"),
   btnPrev: document.getElementById("btn-prev"),
@@ -105,6 +139,22 @@ const els = {
   exerciseSvg: document.getElementById("exercise-svg"),
   exerciseName: document.getElementById("exercise-name"),
   timer: document.getElementById("timer"),
+  // inbox dialog
+  inboxDialog: document.getElementById("inbox-dialog"),
+  inboxList: document.getElementById("inbox-list"),
+  inboxEmpty: document.getElementById("inbox-empty"),
+  btnInboxClose: document.getElementById("btn-inbox-close"),
+  // account dialog
+  accountDialog: document.getElementById("account-dialog"),
+  accountNameDisplay: document.getElementById("account-name-display"),
+  btnAccountClose: document.getElementById("btn-account-close"),
+  btnLogout: document.getElementById("btn-logout"),
+  // send achievement dialog
+  sendDialog: document.getElementById("send-dialog"),
+  sendUsername: document.getElementById("send-username"),
+  sendError: document.getElementById("send-error"),
+  btnSendCancel: document.getElementById("btn-send-cancel"),
+  btnSendConfirm: document.getElementById("btn-send-confirm"),
   // duration dialog
   durDialog: document.getElementById("duration-dialog"),
   durTitle: document.getElementById("duration-title"),
@@ -264,7 +314,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // --- View routing ---
-const ALL_VIEWS = [els.viewList, els.viewEdit, els.viewPicker, els.viewSession, els.viewFinished];
+const ALL_VIEWS = [els.viewLogin, els.viewList, els.viewEdit, els.viewPicker, els.viewSession, els.viewFinished, els.viewStats];
 function show(view) {
   for (const v of ALL_VIEWS) v.classList.add("hidden");
   view.classList.remove("hidden");
@@ -954,7 +1004,19 @@ function finish() {
   stopTimerLoop();
   state.status = "finished";
   releaseWakeLock();
+  // Persist this completed session to history
+  const workoutName = getWorkout(state.workoutId)?.name || "Unbekannt";
+  const totalSeconds = state.schedule
+    .filter((p) => p.kind === "work")
+    .reduce((s, p) => s + p.duration, 0);
+  logCompletion({
+    workoutId: state.workoutId,
+    workoutName,
+    exerciseCount: state.exercises.length,
+    totalSeconds,
+  });
   show(els.viewFinished);
+  els.btnShareAchievement.classList.toggle("hidden", !isConfigured() || !getAuth());
   successFanfare();
 }
 
@@ -976,6 +1038,240 @@ els.btnMute.addEventListener("click", () => {
   els.btnMute.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton stumm schalten");
   els.btnMute.title = muted ? "Ton einschalten" : "Ton stumm schalten";
   if (muted) window.speechSynthesis?.cancel();
+});
+
+// --- Stats dashboard ---
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatHistoryDate(dateStr) {
+  const today = localDateStr();
+  const yesterday = localDateStr(new Date(Date.now() - 86400000));
+  if (dateStr === today) return "Heute";
+  if (dateStr === yesterday) return "Gestern";
+  const [y, m, d] = dateStr.split("-");
+  return y === String(new Date().getFullYear()) ? `${d}.${m}.` : `${d}.${m}.${y.slice(2)}`;
+}
+
+function renderStats() {
+  const stats = getStats();
+  const history = loadHistory();
+  const isEmpty = !stats;
+
+  document.getElementById("stats-empty").classList.toggle("hidden", !isEmpty);
+  document.querySelector(".stats-left").classList.toggle("hidden", isEmpty);
+  document.getElementById("stats-history-panel").classList.toggle("hidden", isEmpty);
+
+  if (!stats) return;
+
+  document.getElementById("stat-streak").textContent = stats.streak;
+  document.getElementById("stat-total").textContent = stats.totalSessions;
+  document.getElementById("stat-time").textContent = stats.totalTimeStr;
+  document.getElementById("stat-exercises").textContent = stats.totalExercises;
+
+  const favSection = document.getElementById("stats-favorite");
+  if (stats.favoriteName) {
+    document.getElementById("stat-favorite").textContent = stats.favoriteName;
+    favSection.classList.remove("hidden");
+  } else {
+    favSection.classList.add("hidden");
+  }
+
+  // History list
+  const ul = document.getElementById("stats-history-list");
+  ul.innerHTML = "";
+  for (const entry of history) {
+    const li = document.createElement("li");
+    li.className = "stats-history-item";
+    const dur = Math.max(1, Math.round((entry.totalSeconds || 0) / 60));
+    const name = (entry.workoutName || "—").replace(/[<>&"]/g, (c) =>
+      ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
+    li.innerHTML =
+      `<span class="stats-history-date">${formatHistoryDate(entry.date)}</span>` +
+      `<span class="stats-history-name">${name}</span>` +
+      `<span class="stats-history-dur">${dur} Min</span>`;
+    ul.appendChild(li);
+  }
+}
+
+els.btnStats.addEventListener("click", () => {
+  renderStats();
+  show(els.viewStats);
+});
+document.getElementById("btn-back-from-stats").addEventListener("click", goToList);
+
+const resetStatsDialog = document.getElementById("reset-stats-dialog");
+document.getElementById("btn-reset-stats").addEventListener("click", () => {
+  resetStatsDialog.showModal();
+});
+document.getElementById("btn-reset-cancel").addEventListener("click", () => {
+  resetStatsDialog.close();
+});
+document.getElementById("btn-reset-confirm").addEventListener("click", () => {
+  clearHistory();
+  resetStatsDialog.close();
+  renderStats();
+});
+
+// --- Online-Sync (Firestore) ---
+
+async function initOnlineSync(auth) {
+  setDbSync({ saveWorkout, removeWorkout, saveHistoryEntry, clearAllHistory });
+
+  try {
+    const [fsWorkouts, fsHistory] = await Promise.all([
+      fetchAllWorkouts(),
+      fetchHistory(),
+    ]);
+
+    if (fsWorkouts.length > 0) {
+      importWorkouts(fsWorkouts);
+    } else {
+      // Erster Login: lokale Daten in Firestore hochladen
+      await Promise.all(listWorkouts().map(w => saveWorkout(w).catch(() => {})));
+    }
+
+    if (fsHistory.length > 0) {
+      importHistory(fsHistory);
+    } else {
+      await Promise.all(loadHistory().map(e => saveHistoryEntry(e).catch(() => {})));
+    }
+
+    await saveProfile(auth.username);
+    renderWorkoutList();
+  } catch (_) {}
+
+  subscribeInbox(handleInboxUpdate);
+}
+
+// --- Login ---
+
+function showLoginError(msg) {
+  els.loginError.textContent = msg;
+  els.loginError.classList.remove("hidden");
+}
+
+els.btnLogin.addEventListener("click", async () => {
+  const username = els.loginUsername.value.trim();
+  const pin      = els.loginPin.value.trim();
+  els.loginError.classList.add("hidden");
+
+  if (!username) { showLoginError("Bitte gib einen Benutzernamen ein."); return; }
+  if (!/^\d{4,6}$/.test(pin)) { showLoginError("Die PIN muss 4 bis 6 Ziffern enthalten."); return; }
+
+  els.btnLogin.disabled = true;
+  els.btnLogin.textContent = "…";
+
+  const auth = await login(username, pin);
+  initDb(auth.uid);
+  renderWorkoutList();
+  show(els.viewList);
+  initOnlineSync(auth);
+
+  els.btnLogin.disabled = false;
+  els.btnLogin.textContent = "Los geht's";
+});
+
+els.loginPin.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") els.btnLogin.click();
+});
+
+// --- Inbox ---
+
+let _inboxItems = [];
+
+function handleInboxUpdate(items) {
+  _inboxItems = items;
+  els.btnInbox.classList.toggle("has-unread", items.length > 0);
+}
+
+function renderInbox() {
+  els.inboxList.innerHTML = "";
+  if (_inboxItems.length === 0) {
+    els.inboxEmpty.classList.remove("hidden");
+    return;
+  }
+  els.inboxEmpty.classList.add("hidden");
+  for (const item of _inboxItems) {
+    const div = document.createElement("div");
+    div.className = "inbox-item";
+    div.innerHTML = `
+      <div class="inbox-item-name"></div>
+      <div class="inbox-item-text"></div>
+    `;
+    div.querySelector(".inbox-item-name").textContent = item.fromName || "Jemand";
+    div.querySelector(".inbox-item-text").textContent =
+      `hat „${item.workoutName || "ein Training"}" abgeschlossen 💪`;
+    els.inboxList.appendChild(div);
+  }
+}
+
+els.btnInbox.addEventListener("click", () => {
+  if (!isConfigured()) return;
+  renderInbox();
+  els.inboxDialog.showModal();
+  // Alle als gelesen markieren
+  for (const item of _inboxItems) markInboxRead(item.id).catch(() => {});
+});
+
+els.btnInboxClose.addEventListener("click", () => {
+  els.inboxDialog.close();
+  _inboxItems = [];
+  els.btnInbox.classList.remove("has-unread");
+});
+
+// --- Konto ---
+
+els.btnAccount.addEventListener("click", () => {
+  if (!isConfigured()) return;
+  const auth = getAuth();
+  els.accountNameDisplay.textContent = auth ? auth.username : "—";
+  els.accountDialog.showModal();
+});
+
+els.btnAccountClose.addEventListener("click", () => els.accountDialog.close());
+
+els.btnLogout.addEventListener("click", () => {
+  if (confirm("Wirklich abmelden? Deine Daten bleiben in der Cloud erhalten.")) {
+    logout(); // lädt die Seite neu
+  }
+});
+
+// --- Erfolg teilen ---
+
+els.btnShareAchievement.addEventListener("click", () => {
+  els.sendUsername.value = "";
+  els.sendError.classList.add("hidden");
+  els.sendDialog.showModal();
+});
+
+els.btnSendCancel.addEventListener("click", () => els.sendDialog.close());
+
+els.btnSendConfirm.addEventListener("click", async () => {
+  const targetName = els.sendUsername.value.trim();
+  if (!targetName) { els.sendError.textContent = "Bitte gib einen Benutzernamen ein."; els.sendError.classList.remove("hidden"); return; }
+
+  const auth = getAuth();
+  if (!auth) return;
+  const workoutName = getWorkout(state.workoutId)?.name || "Workout";
+
+  els.btnSendConfirm.disabled = true;
+  els.btnSendConfirm.textContent = "…";
+
+  const target = await findUserByUsername(targetName);
+  if (!target) {
+    els.sendError.textContent = `Nutzer „${targetName}" nicht gefunden.`;
+    els.sendError.classList.remove("hidden");
+    els.btnSendConfirm.disabled = false;
+    els.btnSendConfirm.textContent = "Senden";
+    return;
+  }
+
+  await sendAchievement(target.uid, { fromName: auth.username, workoutName });
+  els.sendDialog.close();
+  els.btnSendConfirm.disabled = false;
+  els.btnSendConfirm.textContent = "Senden";
 });
 
 // --- Service Worker & manual update ---
@@ -1002,7 +1298,28 @@ document.getElementById("version-label").addEventListener("click", async () => {
 
 // --- Boot ---
 preloadExerciseImages();
-renderWorkoutList();
-show(els.viewList);
-// Suppress unused-warning for getLastUsedWorkoutId; reserved for future quick-start UX
+
+{
+  const _auth = getAuth();
+  if (isConfigured() && !_auth) {
+    // Firebase konfiguriert, aber noch nicht eingeloggt → Login-Screen
+    show(els.viewLogin);
+    els.btnInbox.classList.add("hidden");
+    els.btnAccount.classList.add("hidden");
+  } else {
+    if (isConfigured() && _auth) {
+      // Bereits eingeloggt → Sync im Hintergrund starten
+      initDb(_auth.uid);
+      initOnlineSync(_auth);
+    }
+    // Kein Firebase konfiguriert → lokaler Modus, Login-Buttons verstecken
+    if (!isConfigured()) {
+      els.btnInbox.classList.add("hidden");
+      els.btnAccount.classList.add("hidden");
+    }
+    renderWorkoutList();
+    show(els.viewList);
+  }
+}
+
 void getLastUsedWorkoutId;
