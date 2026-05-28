@@ -1,4 +1,4 @@
-const CACHE = "7min-v15.2";
+const CACHE = "7min-v15.4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -37,6 +37,31 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload;
+  try { payload = event.data.json(); } catch { return; }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "7-Minuten-Training", {
+      body: payload.body || "",
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) return c.focus();
+      }
+      return clients.openWindow("./");
+    })
   );
 });
 

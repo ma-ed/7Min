@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -9,7 +12,8 @@
       "CLAUDE.md",
       "*.md",
       "node_modules/**",
-      ".git/**"
+      ".git/**",
+      "functions/**"
     ]
   }
 }

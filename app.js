@@ -38,9 +38,19 @@ import {
   subscribeInbox,
   markInboxRead,
   sendAchievement,
+  savePushSubscription,
+  removePushSubscription,
 } from "./db.js";
 
-const VERSION = "v15.2";
+const VERSION = "v15.4";
+
+const VAPID_PUBLIC_KEY = "BJyx6dSi7Nck2YjFmSSSCIXp9l9s7bao3cd2k3yTh_QDefUn74OSHs7PkqYzslZm3QmDWOOUVg4B-PakBUcpPII";
+
+function urlBase64ToUint8Array(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
 
 document.getElementById("version-label").textContent = VERSION;
 
@@ -149,6 +159,7 @@ const els = {
   accountDialog: document.getElementById("account-dialog"),
   accountNameDisplay: document.getElementById("account-name-display"),
   btnAccountClose: document.getElementById("btn-account-close"),
+  btnPushToggle: document.getElementById("btn-push-toggle"),
   btnLogout: document.getElementById("btn-logout"),
   // send achievement dialog
   sendDialog: document.getElementById("send-dialog"),
@@ -1125,6 +1136,42 @@ document.getElementById("btn-reset-confirm").addEventListener("click", () => {
   renderStats();
 });
 
+// --- Push-Benachrichtigungen ---
+
+const PUSH_SUPPORTED = "serviceWorker" in navigator && "PushManager" in window;
+
+async function updatePushButton() {
+  if (!PUSH_SUPPORTED) { els.btnPushToggle.hidden = true; return; }
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  els.btnPushToggle.hidden = false;
+  els.btnPushToggle.textContent = sub
+    ? "Benachrichtigungen deaktivieren"
+    : "Benachrichtigungen aktivieren";
+}
+
+els.btnPushToggle.addEventListener("click", async () => {
+  if (!PUSH_SUPPORTED) return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  if (existing) {
+    await existing.unsubscribe();
+    await removePushSubscription();
+  } else {
+    try {
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      await savePushSubscription(sub);
+    } catch (err) {
+      console.warn("Push-Anmeldung fehlgeschlagen:", err);
+      return;
+    }
+  }
+  await updatePushButton();
+});
+
 // --- Online-Sync (Firestore) ---
 
 async function initOnlineSync(auth) {
@@ -1240,6 +1287,7 @@ els.btnAccount.addEventListener("click", () => {
   if (!isConfigured()) return;
   const auth = getAuth();
   els.accountNameDisplay.textContent = auth ? auth.username : "—";
+  updatePushButton();
   els.accountDialog.showModal();
 });
 

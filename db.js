@@ -171,6 +171,26 @@ export async function markInboxRead(msgId) {
   } catch (_) {}
 }
 
+// ─── Push-Abonnements ────────────────────────────────────────────────────────
+
+export async function savePushSubscription(subscription) {
+  if (!_uid) return;
+  try {
+    const store = await getFirestore();
+    const { doc, setDoc } = await fs();
+    await setDoc(doc(store, "users", _uid), { pushSubscription: subscription.toJSON() }, { merge: true });
+  } catch (_) {}
+}
+
+export async function removePushSubscription() {
+  if (!_uid) return;
+  try {
+    const store = await getFirestore();
+    const { doc, updateDoc, deleteField } = await fs();
+    await updateDoc(doc(store, "users", _uid), { pushSubscription: deleteField() });
+  } catch (_) {}
+}
+
 // Schickt einen Erfolg an den Posteingang eines anderen Nutzers.
 export async function sendAchievement(targetUid, { fromName, workoutName }) {
   try {
