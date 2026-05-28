@@ -73,6 +73,7 @@
       <div id="edit-empty" class="edit-empty hidden">Noch keine Übungen. Tippe auf „+ Übung hinzufügen".</div>
       <div class="edit-actions">
         <button id="btn-add-exercise" class="btn btn-primary">+ Übung hinzufügen</button>
+        <button id="btn-share-workout" class="btn btn-secondary hidden">Training teilen</button>
         <button id="btn-delete-workout" class="btn btn-danger hidden">Training löschen</button>
       </div>
     </section>
@@ -213,10 +214,10 @@
     </div>
   </dialog>
 
-  <!-- Erfolg teilen -->
+  <!-- Erfolg / Training teilen -->
   <dialog id="send-dialog" class="duration-dialog">
     <div class="duration-form">
-      <h3 class="duration-title">Erfolg teilen</h3>
+      <h3 id="send-dialog-title" class="duration-title">Erfolg teilen</h3>
       <p class="duration-hint" style="text-align:center">Benutzername des Empfängers:</p>
       <input id="send-username" type="text" class="login-input" placeholder="Benutzername"
              autocapitalize="off" autocomplete="off" spellcheck="false" />
@@ -263,6 +264,6 @@
 
   <div id="version-label" class="version-label"></div>
   <button id="btn-theme" class="theme-toggle" aria-label="Farbschema wechseln" title="Farbschema wechseln"></button>
-  <script type="module" src="./app.js?v=15"></script>
+  <script type="module" src="./app.js?v=16"></script>
 </body>
 </html>

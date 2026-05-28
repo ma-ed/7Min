@@ -111,6 +111,18 @@ export function isNameTaken(name, excludeId) {
   return load().some((w) => w.id !== excludeId && w.name.trim().toLowerCase() === normalized);
 }
 
+// Liefert einen freien Trainingsnamen. Wenn baseName schon belegt ist,
+// werden Suffixe " (Kopie)", " (Kopie 2)" usw. probiert.
+export function uniqueWorkoutName(baseName) {
+  const base = (baseName || "Training").trim() || "Training";
+  if (!isNameTaken(base)) return base;
+  const first = `${base} (Kopie)`;
+  if (!isNameTaken(first)) return first;
+  let n = 2;
+  while (isNameTaken(`${base} (Kopie ${n})`)) n++;
+  return `${base} (Kopie ${n})`;
+}
+
 function genId() {
   return "w_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
 }

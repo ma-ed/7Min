@@ -12,6 +12,7 @@ import {
   deleteWorkout,
   isProtectedWorkout,
   isNameTaken,
+  uniqueWorkoutName,
   setLastUsedWorkoutId,
   getLastUsedWorkoutId,
   logCompletion,
@@ -38,11 +39,13 @@ import {
   subscribeInbox,
   markInboxRead,
   sendAchievement,
+  sendWorkoutShare,
+  getUid,
   savePushSubscription,
   removePushSubscription,
 } from "./db.js";
 
-const VERSION = "v15.4";
+const VERSION = "v16";
 
 const VAPID_PUBLIC_KEY = "BJyx6dSi7Nck2YjFmSSSCIXp9l9s7bao3cd2k3yTh_QDefUn74OSHs7PkqYzslZm3QmDWOOUVg4B-PakBUcpPII";
 
@@ -128,6 +131,7 @@ const els = {
   editList: document.getElementById("edit-exercise-list"),
   editEmpty: document.getElementById("edit-empty"),
   btnAddExercise: document.getElementById("btn-add-exercise"),
+  btnShareWorkout: document.getElementById("btn-share-workout"),
   btnDeleteWorkout: document.getElementById("btn-delete-workout"),
   // picker
   btnPickerBack: document.getElementById("btn-picker-back"),
@@ -161,8 +165,9 @@ const els = {
   btnAccountClose: document.getElementById("btn-account-close"),
   btnPushToggle: document.getElementById("btn-push-toggle"),
   btnLogout: document.getElementById("btn-logout"),
-  // send achievement dialog
+  // send achievement / workout share dialog
   sendDialog: document.getElementById("send-dialog"),
+  sendDialogTitle: document.getElementById("send-dialog-title"),
   sendUsername: document.getElementById("send-username"),
   sendError: document.getElementById("send-error"),
   btnSendCancel: document.getElementById("btn-send-cancel"),
@@ -399,6 +404,8 @@ function openEditor(workoutId) {
   els.editLockedHint.classList.toggle("hidden", !locked);
   els.btnDeleteWorkout.classList.toggle("hidden", locked);
   els.btnAddExercise.classList.toggle("hidden", locked);
+  const canShare = !locked && isConfigured() && !!getAuth();
+  els.btnShareWorkout.classList.toggle("hidden", !canShare);
   clearEditNameError();
   renderEditList();
   show(els.viewEdit);
@@ -1256,29 +1263,76 @@ function renderInbox() {
   for (const item of _inboxItems) {
     const div = document.createElement("div");
     div.className = "inbox-item";
-    div.innerHTML = `
-      <div class="inbox-item-name"></div>
-      <div class="inbox-item-text"></div>
-    `;
-    div.querySelector(".inbox-item-name").textContent = item.fromName || "Jemand";
-    div.querySelector(".inbox-item-text").textContent =
-      `hat „${item.workoutName || "ein Training"}" abgeschlossen 💪`;
+    const fromName = item.fromName || "Jemand";
+
+    if (item.type === "workout-share") {
+      const wname = item.workout?.name || "ein Training";
+      div.innerHTML = `
+        <div class="inbox-item-name"></div>
+        <div class="inbox-item-text"></div>
+        <div class="inbox-item-actions">
+          <button type="button" class="btn btn-ghost btn-share-discard">Verwerfen</button>
+          <button type="button" class="btn btn-primary btn-share-accept">Annehmen</button>
+        </div>
+      `;
+      div.querySelector(".inbox-item-name").textContent = fromName;
+      div.querySelector(".inbox-item-text").textContent =
+        `möchte dir „${wname}" senden.`;
+      div.querySelector(".btn-share-accept").addEventListener("click", () => acceptWorkoutShare(item));
+      div.querySelector(".btn-share-discard").addEventListener("click", () => discardWorkoutShare(item));
+    } else {
+      div.innerHTML = `
+        <div class="inbox-item-name"></div>
+        <div class="inbox-item-text"></div>
+      `;
+      div.querySelector(".inbox-item-name").textContent = fromName;
+      div.querySelector(".inbox-item-text").textContent =
+        `hat „${item.workoutName || "ein Training"}" abgeschlossen 💪`;
+    }
+
     els.inboxList.appendChild(div);
   }
+}
+
+async function acceptWorkoutShare(item) {
+  const incoming = item.workout || {};
+  const exercises = Array.isArray(incoming.exercises)
+    ? incoming.exercises.map((e) => ({ ...e }))
+    : [];
+  const name = uniqueWorkoutName(incoming.name || "Geteiltes Training");
+  createWorkout(name, exercises);
+  try { await markInboxRead(item.id); } catch (_) {}
+  _inboxItems = _inboxItems.filter((i) => i.id !== item.id);
+  if (_inboxItems.length === 0) els.btnInbox.classList.remove("has-unread");
+  renderInbox();
+  renderWorkoutList();
+}
+
+async function discardWorkoutShare(item) {
+  try { await markInboxRead(item.id); } catch (_) {}
+  _inboxItems = _inboxItems.filter((i) => i.id !== item.id);
+  if (_inboxItems.length === 0) els.btnInbox.classList.remove("has-unread");
+  renderInbox();
 }
 
 els.btnInbox.addEventListener("click", () => {
   if (!isConfigured()) return;
   renderInbox();
   els.inboxDialog.showModal();
-  // Alle als gelesen markieren
-  for (const item of _inboxItems) markInboxRead(item.id).catch(() => {});
+  // Achievements werden beim Öffnen automatisch gelesen.
+  // Workout-Shares bleiben offen, bis der Nutzer Annehmen/Verwerfen wählt.
+  for (const item of _inboxItems) {
+    if (item.type === "workout-share") continue;
+    markInboxRead(item.id).catch(() => {});
+  }
 });
 
 els.btnInboxClose.addEventListener("click", () => {
   els.inboxDialog.close();
-  _inboxItems = [];
-  els.btnInbox.classList.remove("has-unread");
+  // Achievements sind bereits als gelesen markiert; der nächste Snapshot
+  // entfernt sie automatisch. Workout-Shares bleiben offen.
+  _inboxItems = _inboxItems.filter((i) => i.type === "workout-share");
+  if (_inboxItems.length === 0) els.btnInbox.classList.remove("has-unread");
 });
 
 // --- Konto ---
@@ -1300,12 +1354,28 @@ els.btnLogout.addEventListener("click", () => {
   }
 });
 
-// --- Erfolg teilen ---
+// --- Erfolg / Training teilen ---
 
-els.btnShareAchievement.addEventListener("click", () => {
+// "achievement" = Workout-Erfolg vom Finished-Screen | "workout" = Training-Snapshot vom Editor
+let shareMode = "achievement";
+let shareWorkoutId = null;
+
+function openSendDialog(mode, opts = {}) {
+  shareMode = mode;
+  shareWorkoutId = opts.workoutId || null;
+  els.sendDialogTitle.textContent = mode === "workout" ? "Training teilen" : "Erfolg teilen";
   els.sendUsername.value = "";
   els.sendError.classList.add("hidden");
+  els.btnSendConfirm.disabled = false;
+  els.btnSendConfirm.textContent = "Senden";
   els.sendDialog.showModal();
+}
+
+els.btnShareAchievement.addEventListener("click", () => openSendDialog("achievement"));
+
+els.btnShareWorkout.addEventListener("click", () => {
+  if (!isConfigured() || !getAuth()) return;
+  openSendDialog("workout", { workoutId: editor.workoutId });
 });
 
 els.btnSendCancel.addEventListener("click", () => els.sendDialog.close());
@@ -1316,7 +1386,6 @@ els.btnSendConfirm.addEventListener("click", async () => {
 
   const auth = getAuth();
   if (!auth) return;
-  const workoutName = getWorkout(state.workoutId)?.name || "Workout";
 
   els.btnSendConfirm.disabled = true;
   els.btnSendConfirm.textContent = "…";
@@ -1330,10 +1399,37 @@ els.btnSendConfirm.addEventListener("click", async () => {
     return;
   }
 
-  await sendAchievement(target.uid, { fromName: auth.username, workoutName });
-  els.sendDialog.close();
-  els.btnSendConfirm.disabled = false;
-  els.btnSendConfirm.textContent = "Senden";
+  if (target.uid === getUid()) {
+    els.sendError.textContent = "Du kannst dir nicht selbst etwas schicken.";
+    els.sendError.classList.remove("hidden");
+    els.btnSendConfirm.disabled = false;
+    els.btnSendConfirm.textContent = "Senden";
+    return;
+  }
+
+  try {
+    if (shareMode === "workout") {
+      const workout = getWorkout(shareWorkoutId);
+      if (!workout) {
+        els.sendError.textContent = "Training nicht gefunden.";
+        els.sendError.classList.remove("hidden");
+        els.btnSendConfirm.disabled = false;
+        els.btnSendConfirm.textContent = "Senden";
+        return;
+      }
+      await sendWorkoutShare(target.uid, { fromName: auth.username, workout });
+    } else {
+      const workoutName = getWorkout(state.workoutId)?.name || "Workout";
+      await sendAchievement(target.uid, { fromName: auth.username, workoutName });
+    }
+    els.sendDialog.close();
+  } catch (_) {
+    els.sendError.textContent = "Senden fehlgeschlagen. Bitte erneut versuchen.";
+    els.sendError.classList.remove("hidden");
+  } finally {
+    els.btnSendConfirm.disabled = false;
+    els.btnSendConfirm.textContent = "Senden";
+  }
 });
 
 // --- Service Worker & manual update ---

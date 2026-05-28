@@ -198,6 +198,7 @@ export async function sendAchievement(targetUid, { fromName, workoutName }) {
     const { doc, setDoc, serverTimestamp } = await fs();
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     await setDoc(doc(store, "users", targetUid, "inbox", id), {
+      type: "achievement",
       from: _uid,
       fromName,
       workoutName,
@@ -205,4 +206,28 @@ export async function sendAchievement(targetUid, { fromName, workoutName }) {
       read: false,
     });
   } catch (_) {}
+}
+
+// Schickt einen Workout-Snapshot an den Posteingang eines anderen Nutzers.
+// `workout` enthält {name, exercises} – die ID wird absichtlich NICHT übertragen,
+// damit der Empfänger beim Annehmen eine frische lokale ID erhält.
+export async function sendWorkoutShare(targetUid, { fromName, workout }) {
+  const store = await getFirestore();
+  const { doc, setDoc, serverTimestamp } = await fs();
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  await setDoc(doc(store, "users", targetUid, "inbox", id), {
+    type: "workout-share",
+    from: _uid,
+    fromName,
+    workout: {
+      name: workout.name,
+      exercises: workout.exercises,
+    },
+    sentAt: serverTimestamp(),
+    read: false,
+  });
+}
+
+export function getUid() {
+  return _uid;
 }

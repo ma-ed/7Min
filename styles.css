@@ -1138,6 +1138,18 @@ h1 {
   margin-top: 0.15rem;
 }
 
+.inbox-item-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+}
+
+.inbox-item-actions .btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 .inbox-empty {
   text-align: center;
   color: var(--fg-dim);

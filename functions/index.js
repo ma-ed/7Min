@@ -23,10 +23,17 @@ exports.sendPushOnInbox = onDocumentCreated(
     const pushSub = userSnap.data()?.pushSubscription;
     if (!pushSub) return null;
 
-    const payload = JSON.stringify({
-      title: `Erfolg von ${data.fromName}`,
-      body: `${data.fromName} hat „${data.workoutName}" abgeschlossen!`,
-    });
+    const fromName = data.fromName || "Jemand";
+    let title, body;
+    if (data.type === "workout-share") {
+      const workoutName = data.workout?.name || "ein Training";
+      title = `Training von ${fromName}`;
+      body = `${fromName} hat dir „${workoutName}" geschickt.`;
+    } else {
+      title = `Erfolg von ${fromName}`;
+      body = `${fromName} hat „${data.workoutName}" abgeschlossen!`;
+    }
+    const payload = JSON.stringify({ title, body });
 
     try {
       await webpush.sendNotification(pushSub, payload);
