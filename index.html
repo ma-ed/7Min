@@ -66,15 +66,19 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <input id="edit-name" class="edit-name" type="text" placeholder="Trainingsname" autocomplete="off" />
+        <button id="btn-share-workout" class="btn-icon hidden" aria-label="Training teilen" title="Training teilen">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l4-4 4 4"/><line x1="12" y1="2" x2="12" y2="15"/><path d="M20 16v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4"/></svg>
+        </button>
+        <button id="btn-delete-workout" class="btn-icon btn-icon-warn hidden" aria-label="Training löschen" title="Training löschen">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
       </header>
       <div id="edit-locked-hint" class="locked-hint hidden">Der Name dieses Trainings ist geschützt.</div>
       <div id="edit-name-error" class="name-error hidden">Dieser Name ist bereits vergeben.</div>
       <div id="edit-exercise-list" class="edit-list"></div>
       <div id="edit-empty" class="edit-empty hidden">Noch keine Übungen. Tippe auf „+ Übung hinzufügen".</div>
       <div class="edit-actions">
-        <button id="btn-add-exercise" class="btn btn-primary">+ Übung hinzufügen</button>
-        <button id="btn-share-workout" class="btn btn-secondary hidden">Training teilen</button>
-        <button id="btn-delete-workout" class="btn btn-danger hidden">Training löschen</button>
+        <button id="btn-add-exercise" class="btn btn-primary btn-xl">+ Übung hinzufügen</button>
       </div>
     </section>
 
