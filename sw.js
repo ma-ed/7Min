@@ -1,4 +1,4 @@
-const CACHE = "7min-v16.1";
+const CACHE = "7min-v16.2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -44,23 +44,27 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
   let payload;
   try { payload = event.data.json(); } catch { return; }
+  const scope = self.registration.scope;
   event.waitUntil(
     self.registration.showNotification(payload.title || "7-Minuten-Training", {
       body: payload.body || "",
-      icon: "./icons/icon-192.png",
-      badge: "./icons/icon-192.png",
+      icon: scope + "icons/icon-192.png",
+      badge: scope + "icons/icon-192.png",
+      tag: "7min-inbox",
+      data: { url: scope },
     })
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const url = event.notification.data?.url || self.registration.scope;
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
-        if ("focus" in c) return c.focus();
+        if (c.url.startsWith(self.registration.scope) && "focus" in c) return c.focus();
       }
-      return clients.openWindow("./");
+      return clients.openWindow(url);
     })
   );
 });

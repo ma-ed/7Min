@@ -45,7 +45,7 @@ import {
   removePushSubscription,
 } from "./db.js";
 
-const VERSION = "v16.1";
+const VERSION = "v16.2";
 
 const VAPID_PUBLIC_KEY = "BJyx6dSi7Nck2YjFmSSSCIXp9l9s7bao3cd2k3yTh_QDefUn74OSHs7PkqYzslZm3QmDWOOUVg4B-PakBUcpPII";
 
